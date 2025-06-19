@@ -1,0 +1,20 @@
+save_corrected_pdf: false
+input_pdf: C:\Users\brian.atkins\OneDrive - Lindamood Demolition\24-105 PHMS NPC - Documents\truck tickets\2025-06-07\export\24-105_2025-06-07_Class2_NTX_WM.pdf
+output_csv: U:\Dev\projects\DocTR_Mod\Test\results\0607\csv\ocrdata\24-105_2025-06-07_Class2_NTX_WM_ocrdata.csv
+output_images_dir: U:\Dev\projects\DocTR_Mod\Test\results\0607\png\24-105_2025-06-07_Class2_NTX_WM
+ticket_numbers_csv: U:\Dev\projects\DocTR_Mod\Test\results\0607\csv\tktnum\24-105_2025-06-07_Class2_NTX_WM_tktnum.csv                  # Output file for ticket numbers only
+poppler_path: C:/Poppler/poppler-24.08.0/Library/bin      # Poppler path for Windows/PDF2Image
+corrected_pdf_path: corrected_pages.pdf                   # or another file name
+identifier: ""                                            # Optional: set if you want
+roi: # Region of Interest (ROI) for OCR, adjust as needed, these are for top-right corner of the page
+  x0: 0.6110
+  y0: 0.0020
+  x1: 0.9994
+  y1: 0.2761
+draw_roi: false                            # Only true if you want ROI images
+draw_ocr_boxes: false                     # Only true if you want annotated OCR boxes
+save_images: false                         # Only if you want images, else keep false for speed
+parallel: true                            # USE parallel processing!
+num_workers: 12                            # Start with 8, can go higher if you want
+profile: true                             # Get timing info, helpful for tuning
+correct_orientation: true                 # Set false if docs are always upright

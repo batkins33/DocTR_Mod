@@ -1,0 +1,6 @@
+python-doctr[torch]
+opencv-python
+pillow
+pytesseract
+pyyaml
+

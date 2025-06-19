@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.log
+.env
+*.bak
+.idea/
+.vscode/
+venv/
+.env/
+.DS_Store
+test/
+.ruff_cache/
+working_files/
