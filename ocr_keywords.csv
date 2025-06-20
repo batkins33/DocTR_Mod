@@ -1,0 +1,14 @@
+vendor_name,vendor_type,vendor_match,vendor_excludes
+CorpoTechs,Trucking,"3317 finley, 469-845-3334, corpotechs, suite 226",
+JDandSon,Trucking,"jd and son trucking enterprises llc, jd and son, jdandsontrucking, dandsontrucking, dandsontrucking@gmail.com, p.o. box 703517",
+Lindamood,Trucking,"2020 nursery, lindamood, nursery","CorpoTechs, JD&Son, Portillo, RCI, Roadstar, Roberts, Tarango, WL Reid, Big City, Austin Asphalt, Heidelberg, 3317 finley, 469-845-3334, corpotechs, suite 226, jd and son trucking enterprises llc, jd and son, jdandsontrucking, dandsontrucking, dandsontrucking@gmail.com, p.o. box 703517, 10550 goodnight lane, portillo, portillo & sons, 1930 hinton, reeder, reeder concrete, 469.291.7755, 5326 w. ledbetter, roadstar, roadstar management, roadstar trucking, roadstarmgmt@yahoo.com, 534-6557, 707-8768, 726-2458, box 936, roberts, seagoville, OFFICE (469) 726-2458, DISPATCH (214) 707-8768, EMERGENCY (214) 534-6557, 469-660-6912, cell 214-973-0640, off 972-780-5263, tarangooffice@yahoo.com, 5840 spring valley, 625-5160, w.l. reid, reid, Big City Crushed Concrete, Box 29816, big city, Austin Asphalt, Austin Asphalt L.P, 11143 goodnight lane, Heidelberg, Arcosa"
+Portillo,Trucking,"10550 goodnight lane, portillo, portillo & sons",
+RCI,Trucking,"1930 hinton, reeder, reeder concrete",
+Roadstar,Trucking,"469.291.7755, 5326 w. ledbetter, roadstar, roadstar management, roadstar trucking, roadstarmgmt@yahoo.com",
+Roberts,Trucking,"534-6557, 707-8768, 726-2458, box 936, roberts, seagoville, OFFICE (469) 726-2458, DISPATCH (214) 707-8768, EMERGENCY (214) 534-6557",
+Tarango,Trucking,"469-660-6912, cell 214-973-0640, off 972-780-5263, tarangooffice@yahoo.com",
+WL_Reid,Trucking,"5840 spring valley, 625-5160, w.l. reid, reid",
+Big City,Materials,"Big City Crushed Concrete, Box 29816, big city","CorpoTechs, JD&Son, Lindamood, Portillo, RCI, Roadstar, Roberts, Tarango, WL Reid"
+Austin Asphalt,Materials,"Austin Asphalt, Austin Asphalt L.P, 11143 goodnight lane","CorpoTechs, JD&Son, Lindamood, Portillo, RCI, Roadstar, Roberts, Tarango, WL Reid"
+Heidelberg,Materials,Heidelberg,"CorpoTechs, JD&Son, Lindamood, Portillo, RCI, Roadstar, Roberts, Tarango, WL Reid"
+Arcosa,Materials,Arcosa,"CorpoTechs, JD&Son, Lindamood, Portillo, RCI, Roadstar, Roberts, Tarango, WL Reid"

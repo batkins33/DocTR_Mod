@@ -1,0 +1,109 @@
+manifest location info:
+	corpotechs:
+		manifest_number:
+    color: '#0080FF'
+    export_to_excel: true
+    line_width: 3
+    ocr_instruction: image
+    position_inches:
+      - 0.2321
+      - 0.2483
+    size_inches:
+      - 1.7251
+      - 0.3441
+    box:
+      - 64
+      - 69
+      - 592
+      - 182
+
+	lindamood:
+		manifest_number:
+    color: '#0080FF'
+    export_to_excel: true
+    line_width: 3
+    ocr_instruction: image
+    position_inches:
+      - 2.7568
+      - 1.7166
+    size_inches:
+      - 1.9886
+      - 0.2867
+    box:
+      - 822
+      - 509
+      - 1428
+      - 605
+
+	RCI:
+		  manifest_number:
+    color: '#0080FF'
+    export_to_excel: true
+    line_width: 3
+    ocr_instruction: image
+    position_inches:
+      - 3.1264
+      - 1.2919
+    size_inches:
+      - 1.994
+      - 0.2898
+    box:
+      - 932
+      - 382
+      - 1541
+      - 479
+
+	roadstar:
+		 manifest_number:
+    color: '#0080FF'
+    export_to_excel: true
+    line_width: 3
+    ocr_instruction: image
+    position_inches:
+      - 3.1884
+      - 0.863
+    size_inches:
+      - 2.5284
+      - 0.4534
+    box:
+      - 951
+      - 253
+      - 1720
+      - 399
+
+	Roberts:
+		 manifest_number:
+    color: '#0080FF'
+    export_to_excel: true
+    line_width: 3
+    ocr_instruction: image
+    position_inches:
+      - 5.4358
+      - 0.5722
+    size_inches:
+      - 2.0163
+      - 0.3475
+    box:
+      - 1625
+      - 166
+      - 2240
+      - 280
+
+	Tarango:
+		manifest_number:
+    color: '#0080FF'
+    export_to_excel: true
+    line_width: 3
+    ocr_instruction: image
+    position_inches:
+      - 1.7772
+      - 0.4353
+    size_inches:
+      - 1.7344
+      - 0.4409
+    box:
+      - 528
+      - 125
+      - 1058
+      - 267
+		
