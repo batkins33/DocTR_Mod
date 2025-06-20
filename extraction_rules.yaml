@@ -1,0 +1,222 @@
+JDandSon:
+  ticket_number:
+    method: below_label
+    label: "PIT/DUMP TICKET"
+    regex: "\\b[A-Z]?\\d{5,}\\b"
+    fallback_method: roi
+    roi: [0.7, 0.1, 0.9, 0.3]
+    fallback_regex: "\\d{5,}"
+  manifest_number:
+    method: label_right
+    label: "MANIFEST #"
+    regex: "\\d+"
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
+
+Portillo:
+  ticket_number:
+    method: roi
+    roi: [0.74, 0.07, 0.9, 0.18]
+    regex: "\\d{5,}"
+  manifest_number:
+    method: label_right
+    label: "MANIFEST #"
+    regex: "\\d+"
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
+
+WL_Reid:
+  ticket_number:
+    method: roi
+    roi: [0.7105, 0.1165, 0.9025, 0.2135]
+    regex: "\\d{5,}"
+  manifest_number:
+    method: null
+    label: null
+    regex: null
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
+
+CorpoTechs:
+  ticket_number:
+    method: roi
+    roi: [0.74, 0.17, 0.92, 0.22]
+    regex: "\\d{5,}"
+  manifest_number:
+    method: null
+    label: null
+    regex: null
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
+
+Lindamood:
+  ticket_number:
+    method: roi
+    roi: [0.65, 0.12, 0.82, 0.21]
+    regex: "\\d{5,}"
+  manifest_number:
+    method: null
+    label: null
+    regex: null
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
+
+RCI:
+  ticket_number:
+    method: roi
+    roi: [0.7, 0.13, 0.88, 0.2]
+    regex: "\\d{5,}"
+  manifest_number:
+    method: null
+    label: null
+    regex: null
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
+
+Roadstar:
+  ticket_number:
+    method: roi
+    roi: [0.7, 0.12, 0.85, 0.2]
+    regex: "\\d{5,}"
+  manifest_number:
+    method: null
+    label: null
+    regex: null
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
+
+Roberts:
+  ticket_number:
+    method: roi
+    roi: [0.8, 0.14, 0.9, 0.23]
+    regex: "\\d{5,}"
+  manifest_number:
+    method: null
+    label: null
+    regex: null
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
+
+Tarango:
+  ticket_number:
+    method: roi
+    roi: [0.75, 0.15, 0.92, 0.22]
+    regex: "\\d{5,}"
+  manifest_number:
+    method: null
+    label: null
+    regex: null
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
+
+DEFAULT:
+  ticket_number:
+    method: roi
+    roi: [0.7, 0.1, 0.9, 0.2]
+    regex: "\\d{5,}"
+  manifest_number:
+    method: label_right
+    label: "MANIFEST #"
+    regex: "\\d+"
+  material_type:
+    method: label_right
+    label: "MATERIAL"
+    regex: "[A-Za-z ]+"
+  truck_number:
+    method: label_right
+    label: "TRUCK #"
+    regex: "\\d+"
+  date:
+    method: label_right
+    label: "DATE"
+    regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"

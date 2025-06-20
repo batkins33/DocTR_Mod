@@ -1,19 +1,23 @@
-import os
-import re
 import csv
-import yaml
-import time
+import glob
 import hashlib
 import logging
-import numpy as np
-from PIL import Image
-from pathlib import Path
+import os
+import re
+import time
 
-import cv2
+import numpy as np
+import pandas as pd
 import pytesseract
+import yaml
+from PIL import Image
 from doctr.models import ocr_predictor
 
+
 # --- Config & Logging ---
+def load_extraction_rules(path="extraction_rules.yaml"):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
 
 
 def parse_roi(roi_cfg):
@@ -28,16 +32,56 @@ def load_config(path="config.yaml"):
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
+
+# --- Vendor Matching: Use only CSV functions ---
+def load_vendor_rules_from_csv(path):
+    df = pd.read_csv(path)
+    vendor_rules = []
+    for _, row in df.iterrows():
+        name = str(row["vendor_name"]).strip()
+        vtype = str(row["vendor_type"]).strip() if "vendor_type" in row else ""
+        # Multiple match terms split by comma
+        matches = [m.strip().lower() for m in str(row["vendor_match"]).split(",")]
+        excludes = []
+        if pd.notna(row["vendor_excludes"]):
+            excludes = [
+                e.strip().lower() for e in str(row["vendor_excludes"]).split(",")
+            ]
+        vendor_rules.append(
+            {
+                "vendor_name": name,
+                "vendor_type": vtype,
+                "match_terms": matches,
+                "exclude_terms": excludes,
+            }
+        )
+    return vendor_rules
+
+
+vendor_rules = load_vendor_rules_from_csv("ocr_keywords.csv")
+extraction_rules = load_extraction_rules("extraction_rules.yaml")
+
+
+def find_vendor(page_text, vendor_rules):
+    page_text_lower = page_text.lower()
+    for rule in vendor_rules:
+        matched_terms = [
+            term for term in rule["match_terms"] if term in page_text_lower
+        ]
+        found_exclude = any(
+            exclude in page_text_lower for exclude in rule["exclude_terms"]
+        )
+        if matched_terms and not found_exclude:
+            return rule["vendor_name"], rule["vendor_type"], matched_terms[0]  # <-- NEW
+    return "", "", ""
+
+
 # --- File Hash ---
-
-
 def get_file_hash(filepath):
     return hashlib.sha256(filepath.encode("utf-8")).hexdigest()
 
 
 # --- Image Extraction ---
-
-
 def extract_images_generator(filepath, poppler_path=None):
     ext = os.path.splitext(filepath)[1].lower()
     if ext == ".pdf":
@@ -60,8 +104,6 @@ def extract_images_generator(filepath, poppler_path=None):
 
 
 # --- Orientation Correction ---
-
-
 def correct_image_orientation(pil_img, page_num=None):
     try:
         osd = pytesseract.image_to_osd(pil_img)
@@ -75,98 +117,165 @@ def correct_image_orientation(pil_img, page_num=None):
                 return pil_img.rotate(180, expand=True)
             elif rotation == 270:
                 return pil_img.rotate(-270, expand=True)
-        # After orientation correction in serial processing
-
     except Exception as e:
         logging.warning(f"Orientation error (page {page_num}): {e}")
     return pil_img
 
 
 # --- Ticket Extraction ---
+def extract_vendor_fields(result_page, vendor_name, extraction_rules, pil_img=None):
+    # Get extraction rules for this vendor or use DEFAULT
+    vendor_rule = extraction_rules.get(vendor_name, extraction_rules.get("DEFAULT"))
+    result = {}
+    for field in [
+        "ticket_number",
+        "manifest_number",
+        "material_type",
+        "truck_number",
+        "date",
+    ]:
+        field_rules = vendor_rule.get(field)
+        if field_rules:
+            result[field] = extract_field(result_page, field_rules, pil_img)
+        else:
+            result[field] = None
+    return result
 
 
-def extract_ticket_number(result_page, roi):
-    candidates = []
-    for block in result_page.blocks:
-        for line in block.lines:
-            (lx_min, ly_min), (lx_max, ly_max) = line.geometry
-            if (
-                lx_min >= roi[0][0]
-                and ly_min >= roi[0][1]
-                and lx_max <= roi[1][0]
-                and ly_max <= roi[1][1]
-            ):
-                text = " ".join(word.value for word in line.words)
-                candidates.append(text)
-    for text in candidates:
-        m = re.search(r"\b\d{5,}\b", text)
-        if m:
-            return m.group(0)
-    return candidates[0] if candidates else None
+def extract_field(result_page, field_rules, pil_img=None):
+    method = field_rules.get("method")
+    regex = field_rules.get("regex")
 
+    # --- ROI/BOX method (normalized or pixel coords) ---
+    if method in ["roi", "box"]:
+        roi = field_rules.get("roi") or field_rules.get("box")
+        # If using normalized coordinates, scale to image shape if necessary
+        # Example for normalized [x0, y0, x1, y1], scale to image pixels if you need to crop
+        if pil_img is not None and roi and len(roi) == 4 and max(roi) <= 1:
+            width, height = pil_img.size
+            x0, y0, x1, y1 = [
+                int(roi[0] * width),
+                int(roi[1] * height),
+                int(roi[2] * width),
+                int(roi[3] * height),
+            ]
+            roi_box = pil_img.crop((x0, y0, x1, y1))
+            # Run OCR (pytesseract or doctr) on roi_box if needed, else just scan result_page for lines in ROI
+            # For Doctr: scan lines whose geometry falls inside ROI (as you did)
+        # For now, just keep your classic logic for doctr result_page:
+        candidates = []
+        for block in result_page.blocks:
+            for line in block.lines:
+                (lx_min, ly_min), (lx_max, ly_max) = line.geometry
+                if (
+                    lx_min >= roi[0]
+                    and ly_min >= roi[1]
+                    and lx_max <= roi[2]
+                    and ly_max <= roi[3]
+                ):
+                    text = " ".join(word.value for word in line.words)
+                    candidates.append(text)
+        for text in candidates:
+            if regex:
+                m = re.search(regex, text)
+                if m:
+                    return m.group(0)
+        return candidates[0] if candidates else None
 
-# --- Annotation/ROI ---
+    # --- BELOW LABEL method ---
+    elif method == "below_label":
+        label = field_rules.get("label", "").lower()
+        lines = []
+        for block in result_page.blocks:
+            for line in block.lines:
+                lines.append(" ".join(word.value for word in line.words))
+        ticket_label_idx = None
+        for i, line in enumerate(lines):
+            if label in line.lower():
+                ticket_label_idx = i
+                break
+        if ticket_label_idx is not None and ticket_label_idx + 1 < len(lines):
+            target_line = lines[ticket_label_idx + 1]
+            if regex:
+                m = re.search(regex, target_line)
+                if m:
+                    return m.group(0)
+            return target_line.strip()
+        return None
 
+    # --- LABEL RIGHT method ---
+    elif method == "label_right":
+        label = field_rules.get("label", "").lower()
+        regex = field_rules.get("regex")
+        for block in result_page.blocks:
+            for line in block.lines:
+                line_text = " ".join(word.value for word in line.words)
+                if label in line_text.lower():
+                    # Try regex on right side of label
+                    idx = line_text.lower().find(label)
+                    after_label = line_text[idx + len(label) :]
+                    if regex:
+                        m = re.search(regex, after_label)
+                        if m:
+                            return m.group(0)
+                    # Fallback: return everything after label
+                    return after_label.strip()
+        return None
 
-def draw_roi_only(page_image, roi, save_path=None, show=False):
-    img = page_image.copy()
-    if len(img.shape) == 2 or (len(img.shape) == 3 and img.shape[2] == 1):
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    height, width = img.shape[:2]
-    (x0, y0), (x1, y1) = roi
-    pt1 = (int(x0 * width), int(y0 * height))
-    pt2 = (int(x1 * width), int(y1 * height))
-    cv2.rectangle(img, pt1, pt2, (0, 0, 255), 3)
-    cv2.putText(
-        img,
-        "TICKET ROI",
-        (pt1[0], max(0, pt1[1] - 10)),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (0, 0, 255),
-        2,
-    )
-    if save_path:
-        cv2.imwrite(save_path, img)
-    if show:
-        Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).show()
-
-
-def draw_ocr_boxes(page_image, result_page, save_path=None, show=False):
-    img = page_image.copy()
-    if len(img.shape) == 2 or (len(img.shape) == 3 and img.shape[2] == 1):
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    height, width = img.shape[:2]
-    for block in result_page.blocks:
-        for line in block.lines:
-            (x_min, y_min), (x_max, y_max) = line.geometry
-            pt1 = (int(x_min * width), int(y_min * height))
-            pt2 = (int(x_max * width), int(y_max * height))
-            cv2.rectangle(img, pt1, pt2, (0, 255, 0), 2)
-            text = " ".join(word.value for word in line.words)
-            cv2.putText(
-                img,
-                text[:30],
-                (pt1[0], max(0, pt1[1] - 5)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (0, 128, 255),
-                1,
-            )
-    if save_path:
-        cv2.imwrite(save_path, img)
-    if show:
-        Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).show()
+    # --- Default: not found ---
+    return None
 
 
 # --- Per-Page Processing Function ---
-
-
 def process_page(args):
-    (page_idx, pil_img, cfg, file_hash, identifier) = args
+    (page_idx, pil_img, cfg, file_hash, identifier, extraction_rules) = args
     timings = {}
     page_num = page_idx + 1
     t0 = time.time()
+
+    # Save Images & Draw ROI from extraction rules
+    if cfg.get("save_images", False):
+        output_dir = cfg["output_images_dir"]
+        os.makedirs(output_dir, exist_ok=True)
+        pil_img.save(os.path.join(output_dir, f"page_{page_num}.png"))
+
+        # Compose full OCR text for the page (after OCR!)
+        full_text = " ".join(
+            " ".join(word.value for word in line.words)
+            for block in result.pages[0].blocks
+            for line in block.lines
+        )
+        vendor_name, vendor_type, matched_term = find_vendor(full_text, vendor_rules)
+
+        # ...after vendor_name, vendor_type, matched_term = find_vendor(full_text, vendor_rules)
+        vendor_rule = extraction_rules.get(vendor_name, extraction_rules.get("DEFAULT"))
+
+        if cfg.get("draw_roi", False):
+            import cv2
+
+            arr = np.array(pil_img)
+            # Get ROI for ticket_number for this vendor
+            field_rules = vendor_rule.get("ticket_number", {})
+            roi = field_rules.get("roi") or field_rules.get("box")
+            if roi:
+                if max(roi) <= 1:  # normalized
+                    width, height = pil_img.size
+                    roi = [
+                        [int(roi[0] * width), int(roi[1] * height)],
+                        [int(roi[2] * width), int(roi[3] * height)],
+                    ]
+                else:
+                    roi = [[roi[0], roi[1]], [roi[2], roi[3]]]
+                cv2.rectangle(
+                    arr,
+                    (roi[0][0], roi[0][1]),
+                    (roi[1][0], roi[1][1]),
+                    (255, 0, 0),
+                    2,
+                )
+                cv2.imwrite(
+                    os.path.join(output_dir, f"page_{page_num}_roi.png"), arr[..., ::-1]
+                )
 
     # Orientation
     if cfg.get("correct_orientation", True):
@@ -180,9 +289,37 @@ def process_page(args):
     result = model([img_np])
     timings["ocr"] = time.time() - t1 if cfg.get("profile", False) else None
 
+    field_rules = vendor_rule.get(
+        "ticket_number", {}
+    )  # or whichever field you want ROI for
+
+    # Determine ROI based on field rules
+    roi = None
+    if field_rules.get("method") in ["roi", "box"]:
+        roi = field_rules.get("roi") or field_rules.get("box")
+        # If normalized, multiply by image size as in your extract_field()
+        if roi and max(roi) <= 1:
+            width, height = pil_img.size
+            roi_pixels = [
+                int(roi[0] * width),
+                int(roi[1] * height),
+                int(roi[2] * width),
+                int(roi[3] * height),
+            ]
+            roi = [[roi_pixels[0], roi_pixels[1]], [roi_pixels[2], roi_pixels[3]]]
+        else:
+            roi = [[roi[0], roi[1]], [roi[2], roi[3]]]  # if already pixels
+
     # Ticket number
     t2 = time.time()
-    ticket_number = extract_ticket_number(result.pages[0], cfg["roi"])
+    fields = extract_vendor_fields(
+        result.pages[0], vendor_name, extraction_rules, pil_img
+    )
+    ticket_number = fields["ticket_number"]
+    manifest_number = fields["manifest_number"]
+    material_type = fields["material_type"]
+    truck_number = fields["truck_number"]
+    date_extracted = fields["date"]  # Rename as needed
     timings["ticket"] = time.time() - t2 if cfg.get("profile", False) else None
 
     rows = []
@@ -192,8 +329,8 @@ def process_page(args):
             position = line.geometry
             confidence = getattr(line, "confidence", 1.0)
             row = [
-                identifier or "",  # identifier (optional, always included)
-                file_hash,  # always present
+                identifier or "",
+                file_hash,
                 page_num,
                 block_idx,
                 "printed",
@@ -201,30 +338,25 @@ def process_page(args):
                 position,
                 confidence,
                 ticket_number,
+                manifest_number,
+                material_type,
+                truck_number,
+                date_extracted,
+                vendor_name,
+                vendor_type,
+                matched_term,  # Optional: which term matched the vendor
             ]
             rows.append(row)
 
-    # (Optional) Save annotated images
-    if cfg.get("save_images", False):
-        output_dir = cfg["output_images_dir"]
-        os.makedirs(output_dir, exist_ok=True)
-        img_base = os.path.join(output_dir, f"marked_page_{page_num}")
-        if cfg.get("draw_roi", False):
-            draw_roi_only(
-                img_np, cfg["roi"], save_path=img_base + "_roi.png", show=False
-            )
-        if cfg.get("draw_ocr_boxes", False):
-            draw_ocr_boxes(
-                img_np, result.pages[0], save_path=img_base + "_ocr.png", show=False
-            )
-
-    return rows, timings
+    return (
+        rows,
+        timings,
+        pil_img.convert("RGB") if cfg.get("save_corrected_pdf", False) else None,
+    )
 
 
 # --- Main OCR to CSV Pipeline ---
-
-
-def process_pdf_to_csv(cfg):
+def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     file_hash = get_file_hash(cfg["input_pdf"])
     identifier = cfg.get("identifier", "")
 
@@ -235,21 +367,21 @@ def process_pdf_to_csv(cfg):
     corrected_images = [] if cfg.get("save_corrected_pdf", False) else None
     page_args = []
 
-    # --- Collect all args and orientation-corrected images if needed ---
     for page_idx, pil_img in enumerate(
         extract_images_generator(cfg["input_pdf"], poppler_path=cfg.get("poppler_path"))
     ):
         if cfg.get("correct_orientation", True):
             pil_img = correct_image_orientation(pil_img, page_num=page_idx + 1)
-        # Only store if needed
         if corrected_images is not None:
             corrected_images.append(pil_img.convert("RGB"))
-        page_args.append((page_idx, pil_img, cfg, file_hash, identifier))
+        page_args.append(
+            (page_idx, pil_img, cfg, file_hash, identifier, extraction_rules)
+        )
 
     results = []
     timings_total = []
 
-    # --- Parallel or serial ---
+    # --- PROCESS ALL PAGES FIRST ---
     if cfg.get("parallel", False):
         from concurrent.futures import ThreadPoolExecutor
 
@@ -261,39 +393,64 @@ def process_pdf_to_csv(cfg):
     else:
         logging.info("Running in serial mode.")
         for arg in page_args:
-            rows, timings = process_page(arg)
+            rows, timings, corrected_img = process_page(arg)
             results.extend(rows)
             timings_total.append(timings)
+            if cfg.get("save_corrected_pdf", False) and corrected_img is not None:
+                corrected_images.append(corrected_img)
 
-    # After your CSV results are ready, extract unique (page, ticket_number) pairs
-    ticket_numbers_per_page = []
-    for row in results:
-        page, ticket_number = row[2], row[-1]
-        ticket_numbers_per_page.append((page, ticket_number))
+    if return_rows:
+        # Add file_name and file_path columns to every row for combined output
+        for row in results:
+            row.insert(0, cfg.get("file_path", ""))  # file_path
+            row.insert(0, cfg.get("file_name", ""))  # file_name
+        return results, corrected_images
+    else:
+        # Write CSV output per file (legacy behavior, optional)
+        pass  # ... your existing per-file CSV writing code if needed ...
 
-    # --- Write ticket numbers by page ---
-    # Only first ticket_number for each page is kept
-    unique_ticket_numbers = {}
-    for row in results:
-        page, ticket_number = row[2], row[-1]
-        if page not in unique_ticket_numbers:
-            unique_ticket_numbers[page] = ticket_number
-    ticket_numbers_csv = cfg.get("ticket_numbers_csv", "ticket_numbers.csv")
-    os.makedirs(os.path.dirname(ticket_numbers_csv), exist_ok=True)  # <--- THIS LINE
-    with open(ticket_numbers_csv, mode="w", newline="", encoding="utf-8") as f:
+
+# --- Entrypoint ---
+def main():
+    cfg = load_config("config.yaml")
+    vendor_rules = load_vendor_rules_from_csv("ocr_keywords.csv")
+
+    batch_mode = cfg.get("batch_mode", False)
+    all_results = []
+    all_corrected_images = []
+
+    if batch_mode and cfg.get("input_dir"):
+        pdf_files = glob.glob(
+            os.path.join(cfg["input_dir"], "**", "*.pdf"), recursive=True
+        )
+    elif cfg.get("input_pdf"):
+        pdf_files = [cfg["input_pdf"]]
+    else:
+        raise ValueError("No input files or directory specified!")
+
+    for pdf_file in pdf_files:
+        print(f"Processing {pdf_file} ...")
+        # Create per-file config
+        file_cfg = cfg.copy()
+        file_cfg["input_pdf"] = pdf_file
+        file_cfg["file_name"] = os.path.basename(pdf_file)
+        file_cfg["file_path"] = pdf_file
+
+        results, corrected_images = process_pdf_to_csv(
+            file_cfg, vendor_rules, extraction_rules, return_rows=True
+        )
+        all_results.extend(results)
+        if corrected_images:
+            all_corrected_images.extend(corrected_images)
+
+    # --- Write combined OCR data dump ---
+    os.makedirs(os.path.dirname(cfg["output_csv"]), exist_ok=True)
+    with open(cfg["output_csv"], "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["page", "ticket_number"])
-        for page in sorted(unique_ticket_numbers):
-            writer.writerow([page, unique_ticket_numbers[page]])
-    logging.info(f"Ticket numbers by page saved to {ticket_numbers_csv}")
-
-    # --- Write main OCR CSV ---
-    output_csv = cfg["output_csv"]
-    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
-    with open(output_csv, mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
         writer.writerow(
             [
+                "file_name",
+                "file_path",
                 "identifier",
                 "file_hash",
                 "page",
@@ -303,48 +460,104 @@ def process_pdf_to_csv(cfg):
                 "position",
                 "confidence",
                 "ticket_number",
+                "manifest_number",
+                "material_type",
+                "truck_number",
+                "date",
+                "vendor_name",
+                "vendor_type",
+                "matched_term",
             ]
         )
-        for row in results:
+
+        for row in all_results:
             writer.writerow(row)
 
-    # --- Save corrected PDF, only after all pages processed ---
-    if corrected_images:
-        corrected_pdf_path = cfg.get("corrected_pdf_path", "corrected_pages.pdf")
-        try:
-            corrected_images[0].save(
-                corrected_pdf_path,
-                save_all=True,
-                append_images=corrected_images[1:],
-                resolution=300,
+    # --- Build combined ticket summary (one ticket per file+page) ---
+    unique_tickets = {}
+    for row in all_results:
+        (
+            file_name,
+            file_path,
+            identifier,
+            file_hash,
+            page,
+            block_idx,
+            typ,
+            text,
+            position,
+            confidence,
+            ticket_number,
+            manifest_number,
+            material_type,
+            truck_number,
+            date_extracted,
+            vendor_name,
+            vendor_type,
+            matched_term,
+        ) = row
+
+        key = (file_name, page)
+        if key not in unique_tickets and ticket_number:
+            unique_tickets[key] = (
+                file_hash,
+                ticket_number,
+                vendor_name,
+                vendor_type,
+                matched_term,
+                file_path,
             )
-            logging.info(f"Rotated/corrected PDF saved as {corrected_pdf_path}")
-        except Exception as e:
-            logging.error(f"Could not save corrected PDF: {e}")
 
-    # --- Profiling/timing ---
-    if cfg.get("profile", False):
-        import statistics
+    # --- Write combined ticket number CSV ---
+    with open("combined_ticket_numbers.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                "file_name",
+                "file_path",
+                "file_hash",
+                "page",
+                "ticket_number",
+                "vendor_name",
+                "vendor_type",
+                "matched_term",
+            ]
+        )
+        for (file_name, page), (
+            file_hash,
+            ticket_number,
+            vendor_name,
+            vendor_type,
+            matched_term,
+            file_path,
+        ) in sorted(unique_tickets.items()):
+            writer.writerow(
+                [
+                    file_name,
+                    file_path,
+                    file_hash,
+                    page,
+                    ticket_number,
+                    vendor_name,
+                    vendor_type,
+                    matched_term,
+                ]
+            )
 
-        for stage in ["orientation", "ocr", "ticket"]:
-            stage_times = [t[stage] for t in timings_total if t[stage] is not None]
-            if stage_times:
-                logging.info(
-                    f"{stage}: avg {statistics.mean(stage_times):.3f}s, "
-                    f"max {max(stage_times):.3f}s, min {min(stage_times):.3f}s"
-                )
+    # --- Save corrected PDF (if needed) ---
+    if cfg.get("save_corrected_pdf", False) and all_corrected_images:
+        os.makedirs(os.path.dirname(cfg["corrected_pdf_path"]), exist_ok=True)
+        all_corrected_images[0].save(
+            cfg["corrected_pdf_path"],
+            save_all=True,
+            append_images=all_corrected_images[1:],
+            resolution=300,
+        )
 
-    logging.info(f"OCR results saved to {cfg['output_csv']}")
+    print(
+        f"All done! Results saved to {cfg['output_csv']} and combined_ticket_numbers.csv"
+    )
 
-
-# --- Entrypoint ---
 
 if __name__ == "__main__":
-    cfg = load_config("config.yaml")
-    cfg["roi"] = parse_roi(cfg["roi"])
-    if not os.path.exists(cfg["input_pdf"]):
-        logging.error(f"PDF file not found: {cfg['input_pdf']}")
-        exit(1)
-    if not os.path.exists(cfg["output_images_dir"]):
-        os.makedirs(cfg["output_images_dir"])
-    process_pdf_to_csv(cfg)
+    main()
