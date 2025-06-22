@@ -1,5 +1,5 @@
 batch_mode: false                       # true = process all files in input_dir, false = just input_pdf
-input_pdf: C:\Users\brian.atkins\OneDrive - Lindamood Demolition\24-105 PHMS NPC - Documents\truck tickets\2025-06-07\export\24-105_2025-06-07_Class2_Test_Wm_5.pdf
+input_pdf:
 input_dir:
 output_csv: ./output/ocr/combined_results.csv
 ticket_numbers_csv: ./output/ticket_number/combined_ticket_numbers.csv
@@ -9,7 +9,7 @@ extraction_rules_yaml: ./extraction_rules.yaml
 poppler_path: C:/Poppler/poppler-24.08.0/Library/bin      # Poppler path for Windows/PDF2Image
 
 correct_orientation: true                 # Set false if docs are always upright
-parallel: false                            # USE parallel processing!
+parallel: true                            # USE parallel processing!
 num_workers: 12                           # Start with 8, can go higher if you want
 identifier: ""                            # Optional: set if you want
 profile: true                             # Get timing info, helpful for tuning
@@ -18,5 +18,6 @@ save_images: true                         # Only if you want images, else keep f
 output_images_dir: ./output/images
 draw_roi: true                           # Only true if you want ROI images
 draw_ocr_boxes: false                     # Only true if you want annotated OCR boxes
-save_corrected_pdf: true
-corrected_pdf_path: ./output/corrected_pages.pdf                   # or another file name
+save_corrected_pdf: false
+corrected_pdf_path: ./output/final_pdf/corrected_pages.pdf                   # or another file name
+debug: false  # or false

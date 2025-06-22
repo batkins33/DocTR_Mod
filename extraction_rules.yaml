@@ -1,14 +1,16 @@
 JDandSon:
   ticket_number:
-    method: below_label
+    method: roi
+    roi: [ 0.658, 0.163, 0.999, 0.281 ]
     label: "PIT/DUMP TICKET"
-    regex: "\\b[A-Z]?\\d{5,}\\b"
-    fallback_method: roi
-    roi: [0.7, 0.1, 0.9, 0.3]
-    fallback_regex: "\\d{5,}"
+    regex: '\b[A-Z]?\s*\d{5,}\b'
+#    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
+    fallback_method: below_label
+    fallback_regex: '\b[A-Z]?\s*\d{5,}\b'
   manifest_number:
-    method: label_right
-    label: "MANIFEST #"
+    method: roi
+    roi: [ 0.687, 0.033, 0.996, 0.137 ]
+    label: "PIT/DUMP TICKET#"
     regex: "\\d+"
   material_type:
     method: label_right
@@ -19,195 +21,234 @@ JDandSon:
     label: "TRUCK #"
     regex: "\\d+"
   date:
-    method: label_right
+    method: roi
+    roi: [ 0.720, 0.367, 0.996, 0.441 ]
     label: "DATE"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 Portillo:
   ticket_number:
     method: roi
-    roi: [0.74, 0.07, 0.9, 0.18]
-    regex: "\\d{5,}"
+    roi: [ 0.650, 0.006, 0.997, 0.146 ]
+    regex: "\\d{5,}$"
+#    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
   manifest_number:
-    method: label_right
-    label: "MANIFEST #"
-    regex: "\\d+"
+    method: roi
+    roi: [ 0.007, 0.013, 0.292, 0.154 ]
+    label: "PIT TICKET #"
+    regex: "\\d{8,}$"
   material_type:
-    method: label_right
-    label: "MATERIAL"
+    method: roi
+    roi: [ 0.016, 0.651, 0.462, 0.753 ]
+    label: "COMMODITY"
     regex: "[A-Za-z ]+"
   truck_number:
-    method: label_right
+    method: roi
+    roi: [ 0.505, 0.208, 0.753, 0.316 ]
     label: "TRUCK #"
     regex: "\\d+"
   date:
-    method: label_right
+    method: roi
+    roi: [ 0.750, 0.228, 0.978, 0.320 ]
     label: "DATE"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 WL_Reid:
   ticket_number:
     method: roi
-    roi: [0.7105, 0.1165, 0.9025, 0.2135]
-    regex: "\\d{5,}"
+    roi: [ 0.601, 0.106, 0.992, 0.203 ]
+    regex: "\\d{3,}$"
+#    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
   manifest_number:
     method: null
     label: null
     regex: null
   material_type:
-    method: label_right
-    label: "MATERIAL"
-    regex: "[A-Za-z ]+"
+    method: null
+    label: null
+    regex: null
   truck_number:
-    method: label_right
-    label: "TRUCK #"
+    method: roi
+    roi: [ 0.455, 0.261, 0.770, 0.317 ]
+    label: "TRUCK#"
     regex: "\\d+"
   date:
-    method: label_right
+    method: roi
+    roi: [ 0.588, 0.201, 0.974, 0.265 ]
     label: "DATE"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 CorpoTechs:
   ticket_number:
     method: roi
-    roi: [0.74, 0.17, 0.92, 0.22]
-    regex: "\\d{5,}"
+    roi: [ 0.66, 0.145, 0.998, 0.262 ]
+    regex: "\\d{5,}$"
+#    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
   manifest_number:
-    method: null
+    method: roi
+    roi: [ 0.013, 0.036, 0.304, 0.200 ]
     label: null
-    regex: null
+    regex: "\\d{8,}$"
   material_type:
-    method: label_right
-    label: "MATERIAL"
+    method: roi
+    roi: [ 0.013, 0.036, 0.304, 0.200 ]
+    label: "COMMODITY"
     regex: "[A-Za-z ]+"
   truck_number:
     method: label_right
     label: "TRUCK #"
     regex: "\\d+"
   date:
-    method: label_right
+    method: roi
+    roi: [ 0.756, 0.216, 0.994, 0.337 ]
     label: "DATE"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 Lindamood:
   ticket_number:
     method: roi
-    roi: [0.65, 0.12, 0.82, 0.21]
-    regex: "\\d{5,}"
+    roi: [ 0.661, 0.104, 0.982, 0.204 ]
+    regex: "\\d{5,}$"
+#    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
   manifest_number:
-    method: null
-    label: null
-    regex: null
+    method: roi
+    roi: [ 0.423, 0.404, 0.971, 0.502 ]
+    label: "MANIFEST #"
+    regex: "\\d{8,}"
   material_type:
-    method: label_right
-    label: "MATERIAL"
+    method: roi
+    roi: [ 0.443, 0.331, 0.969, 0.410 ]
+    label: "COMMODITY"
     regex: "[A-Za-z ]+"
   truck_number:
-    method: label_right
+    method: roi
+    roi: [ 0.477, 0.717, 0.719, 0.845 ]
     label: "TRUCK #"
     regex: "\\d+"
   date:
-    method: label_right
+    method: roi
+    roi: [ 0.419, 0.153, 0.971, 0.267 ]
     label: "DATE"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 RCI:
   ticket_number:
     method: roi
-    roi: [0.7, 0.13, 0.88, 0.2]
-    regex: "\\d{5,}"
+    roi: [ 0.566, 0.169, 0.942, 0.251 ]
+    regex: "\\d{5,}$"
+#    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
   manifest_number:
-    method: null
-    label: null
-    regex: null
+    method: roi
+    roi: [ 0.563, 0.300, 0.945, 0.384 ]
+    label: "Material Ticket #"
+    regex: "\\d{8,}"
   material_type:
-    method: label_right
-    label: "MATERIAL"
+    method: roi
+    roi: [ 0.042, 0.562, 0.250, 0.677 ]
+    label: "MATERIAL HAULED"
     regex: "[A-Za-z ]+"
   truck_number:
-    method: label_right
+    method: roi
+    roi: [ 0.744, 0.693, 0.940, 0.784 ]
     label: "TRUCK #"
     regex: "\\d+"
   date:
-    method: label_right
+    method: roi
+    roi: [ 0.543, 0.231, 0.949, 0.318 ]
     label: "DATE"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 Roadstar:
   ticket_number:
     method: roi
-    roi: [0.7, 0.12, 0.85, 0.2]
-    regex: "\\d{5,}"
+    roi: [ 0.692, 0.024, 1.000, 0.240 ]
+    regex: "\\d{5,}$"
+#    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
   manifest_number:
-    method: null
-    label: null
-    regex: null
+    method: roi
+    #roi: [ 0.529, 0.252, 0.960, 0.381 ]
+    roi: [ 0.536, 0.174, 0.988, 0.383 ]
+    label: "Pit Ticket #"
+    regex: "\\d{8,}"
   material_type:
-    method: label_right
-    label: "MATERIAL"
+    method: roi
+    roi: [ 0.536, 0.581, 0.992, 0.707 ]
+    label: "Material Hauled"
     regex: "[A-Za-z ]+"
   truck_number:
-    method: label_right
+    method: roi
+    roi: [ 0.022, 0.071, 0.283, 0.245 ]
     label: "TRUCK #"
     regex: "\\d+"
   date:
-    method: label_right
+    method: roi
+    roi: [ 0.028, 0.374, 0.263, 0.512 ]
     label: "DATE"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 Roberts:
   ticket_number:
     method: roi
-    roi: [0.8, 0.14, 0.9, 0.23]
-    regex: "\\d{5,}"
+    roi: [ 0.682, 0.017, 0.995, 0.159 ]
+    regex: "\\d{5,}$"
+#    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
   manifest_number:
-    method: null
-    label: null
-    regex: null
+    method: roi
+    roi: [ 0.719, 0.141, 0.997, 0.234 ]
+    label: "MATERIAL TICKET #"
+    regex: "\\d{8,}"
   material_type:
-    method: label_right
-    label: "MATERIAL"
+    method: roi
+    roi: [ 0.498, 0.622, 0.785, 0.811 ]
+    label: "MATERIAL HAULED"
     regex: "[A-Za-z ]+"
   truck_number:
-    method: label_right
-    label: "TRUCK #"
+    method: roi
+    roi: [ 0.023, 0.265, 0.240, 0.384 ]
+    label: "TANDEM #"
     regex: "\\d+"
   date:
-    method: label_right
+    method: roi
+    roi: [ 0.005, 0.005, 0.231, 0.115 ]
     label: "DATE"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 Tarango:
   ticket_number:
     method: roi
-    roi: [0.75, 0.15, 0.92, 0.22]
-    regex: "\\d{5,}"
+    #roi: [ 0.818, 0.030, 0.999, 0.167 ]
+    roi: [0.639, 0.005, 0.999, 0.244]
+    regex: "\\d{6}"
+#    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
   manifest_number:
-    method: null
-    label: null
-    regex: null
+    method: roi
+    roi: [ 0.145, 0.049, 0.480, 0.193 ]
+    label: "PIT TICKET#"
+    regex: "\\d{8,}"
   material_type:
-    method: label_right
-    label: "MATERIAL"
+    method: roi
+    roi: [ 0.487, 0.612, 0.790, 0.701 ]
+    label: "Material Hauled"
     regex: "[A-Za-z ]+"
   truck_number:
-    method: label_right
-    label: "TRUCK #"
+    method: roi
+    roi: [ 0.196, 0.189, 0.422, 0.253 ]
+    label: "Truck#"
     regex: "\\d+"
   date:
     method: label_right
-    label: "DATE"
+    label: "Date#"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 DEFAULT:
   ticket_number:
     method: roi
-    roi: [0.7, 0.1, 0.9, 0.2]
-    regex: "\\d{5,}"
+    roi: [ 0.684, 0.026, 0.998, 0.246 ]
+    regex: "\\d{5,}$"
   manifest_number:
     method: label_right
     label: "MANIFEST #"
-    regex: "\\d+"
+    regex: "\\d{8,}"
   material_type:
     method: label_right
     label: "MATERIAL"

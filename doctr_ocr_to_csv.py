@@ -13,6 +13,8 @@ import yaml
 from PIL import Image
 from doctr.models import ocr_predictor
 
+from input_picker import resolve_input
+
 
 # --- Config & Logging ---
 def load_extraction_rules(path="extraction_rules.yaml"):
@@ -40,13 +42,17 @@ def load_vendor_rules_from_csv(path):
     for _, row in df.iterrows():
         name = str(row["vendor_name"]).strip()
         vtype = str(row["vendor_type"]).strip() if "vendor_type" in row else ""
-        # Multiple match terms split by comma
-        matches = [m.strip().lower() for m in str(row["vendor_match"]).split(",")]
-        excludes = []
-        if pd.notna(row["vendor_excludes"]):
-            excludes = [
-                e.strip().lower() for e in str(row["vendor_excludes"]).split(",")
-            ]
+        # Robust multi-term parsing
+        matches_str = row.get("vendor_match", "")
+        if pd.isna(matches_str):
+            matches = []
+        else:
+            matches = [m.strip().lower() for m in str(matches_str).split(",") if m.strip()]
+        excludes_str = row.get("vendor_excludes", "")
+        if pd.isna(excludes_str):
+            excludes = []
+        else:
+            excludes = [e.strip().lower() for e in str(excludes_str).split(",") if e.strip()]
         vendor_rules.append(
             {
                 "vendor_name": name,
@@ -56,6 +62,7 @@ def load_vendor_rules_from_csv(path):
             }
         )
     return vendor_rules
+
 
 
 vendor_rules = load_vendor_rules_from_csv("ocr_keywords.csv")
@@ -123,8 +130,9 @@ def correct_image_orientation(pil_img, page_num=None):
 
 
 # --- Ticket Extraction ---
-def extract_vendor_fields(result_page, vendor_name, extraction_rules, pil_img=None):
-    # Get extraction rules for this vendor or use DEFAULT
+def extract_vendor_fields(
+    result_page, vendor_name, extraction_rules, pil_img=None, cfg=None
+):
     vendor_rule = extraction_rules.get(vendor_name, extraction_rules.get("DEFAULT"))
     result = {}
     for field in [
@@ -136,21 +144,44 @@ def extract_vendor_fields(result_page, vendor_name, extraction_rules, pil_img=No
     ]:
         field_rules = vendor_rule.get(field)
         if field_rules:
-            result[field] = extract_field(result_page, field_rules, pil_img)
+            result[field] = extract_field(result_page, field_rules, pil_img, cfg)
         else:
             result[field] = None
     return result
 
 
-def extract_field(result_page, field_rules, pil_img=None):
+def is_valid_manifest_number(num):
+    return bool(re.fullmatch(r"14\d{6}", num or ""))
+
+
+def get_manifest_validation_status(manifest_number):
+    if manifest_number is None:
+        return "invalid"
+    return "valid" if re.fullmatch(r"14\d{6}", manifest_number) else "invalid"
+
+
+def is_valid_ticket_number(ticket_number, validation_regex):
+    if not ticket_number or not validation_regex:
+        return False
+    return bool(re.fullmatch(validation_regex, ticket_number))
+
+
+def get_ticket_validation_status(ticket_number, validation_regex):
+    if not validation_regex:
+        return "not checked"
+    if not ticket_number:
+        return "invalid"
+    return "valid" if re.fullmatch(validation_regex, ticket_number) else "invalid"
+
+
+def extract_field(result_page, field_rules, pil_img=None, cfg=None):
     method = field_rules.get("method")
     regex = field_rules.get("regex")
+    label = str(field_rules.get("label") or "").lower()
+    DEBUG = cfg.get("DEBUG", False) if cfg else False
 
-    # --- ROI/BOX method (normalized or pixel coords) ---
     if method in ["roi", "box"]:
         roi = field_rules.get("roi") or field_rules.get("box")
-        # If using normalized coordinates, scale to image shape if necessary
-        # Example for normalized [x0, y0, x1, y1], scale to image pixels if you need to crop
         if pil_img is not None and roi and len(roi) == 4 and max(roi) <= 1:
             width, height = pil_img.size
             x0, y0, x1, y1 = [
@@ -160,9 +191,7 @@ def extract_field(result_page, field_rules, pil_img=None):
                 int(roi[3] * height),
             ]
             roi_box = pil_img.crop((x0, y0, x1, y1))
-            # Run OCR (pytesseract or doctr) on roi_box if needed, else just scan result_page for lines in ROI
-            # For Doctr: scan lines whose geometry falls inside ROI (as you did)
-        # For now, just keep your classic logic for doctr result_page:
+
         candidates = []
         for block in result_page.blocks:
             for line in block.lines:
@@ -175,11 +204,24 @@ def extract_field(result_page, field_rules, pil_img=None):
                 ):
                     text = " ".join(word.value for word in line.words)
                     candidates.append(text)
+
+        # **Filter out label if provided**
+        if label:
+            candidates = [c for c in candidates if label not in c.lower()]
+
+        if DEBUG:
+            print("CANDIDATES:", candidates)
+
         for text in candidates:
             if regex:
                 m = re.search(regex, text)
+                if DEBUG:
+                    print(
+                        f"[DEBUG] Matching '{regex}' in '{text}' => {m.group(0) if m else None}"
+                    )
                 if m:
                     return m.group(0)
+
         return candidates[0] if candidates else None
 
     # --- BELOW LABEL method ---
@@ -233,22 +275,33 @@ def process_page(args):
     page_num = page_idx + 1
     t0 = time.time()
 
+    # Orientation
+    if cfg.get("correct_orientation", True):
+        pil_img = correct_image_orientation(pil_img, page_num=page_num)
+    timings["orientation"] = time.time() - t0 if cfg.get("profile", False) else None
+
+    # OCR
+    t1 = time.time()
+    img_np = np.array(pil_img)
+    model = process_page.model  # ThreadPool shares this
+    result = model([img_np])
+    timings["ocr"] = time.time() - t1 if cfg.get("profile", False) else None
+
+    # Compose full OCR text for the page (after OCR!)
+    full_text = " ".join(
+        " ".join(word.value for word in line.words)
+        for block in result.pages[0].blocks
+        for line in block.lines
+    )
+    vendor_name, vendor_type, matched_term = find_vendor(full_text, vendor_rules)
+    # ...after vendor_name, vendor_type, matched_term = find_vendor(full_text, vendor_rules)
+    vendor_rule = extraction_rules.get(vendor_name, extraction_rules.get("DEFAULT"))
+
     # Save Images & Draw ROI from extraction rules
     if cfg.get("save_images", False):
-        output_dir = cfg["output_images_dir"]
+        output_dir = cfg.get("output_images_dir", "./output/images")
         os.makedirs(output_dir, exist_ok=True)
         pil_img.save(os.path.join(output_dir, f"page_{page_num}.png"))
-
-        # Compose full OCR text for the page (after OCR!)
-        full_text = " ".join(
-            " ".join(word.value for word in line.words)
-            for block in result.pages[0].blocks
-            for line in block.lines
-        )
-        vendor_name, vendor_type, matched_term = find_vendor(full_text, vendor_rules)
-
-        # ...after vendor_name, vendor_type, matched_term = find_vendor(full_text, vendor_rules)
-        vendor_rule = extraction_rules.get(vendor_name, extraction_rules.get("DEFAULT"))
 
         if cfg.get("draw_roi", False):
             import cv2
@@ -277,18 +330,6 @@ def process_page(args):
                     os.path.join(output_dir, f"page_{page_num}_roi.png"), arr[..., ::-1]
                 )
 
-    # Orientation
-    if cfg.get("correct_orientation", True):
-        pil_img = correct_image_orientation(pil_img, page_num=page_num)
-    timings["orientation"] = time.time() - t0 if cfg.get("profile", False) else None
-
-    # OCR
-    t1 = time.time()
-    img_np = np.array(pil_img)
-    model = process_page.model  # ThreadPool shares this
-    result = model([img_np])
-    timings["ocr"] = time.time() - t1 if cfg.get("profile", False) else None
-
     field_rules = vendor_rule.get(
         "ticket_number", {}
     )  # or whichever field you want ROI for
@@ -313,14 +354,25 @@ def process_page(args):
     # Ticket number
     t2 = time.time()
     fields = extract_vendor_fields(
-        result.pages[0], vendor_name, extraction_rules, pil_img
+        result.pages[0], vendor_name, extraction_rules, pil_img, cfg
     )
+
     ticket_number = fields["ticket_number"]
     manifest_number = fields["manifest_number"]
     material_type = fields["material_type"]
     truck_number = fields["truck_number"]
-    date_extracted = fields["date"]  # Rename as needed
+    date_extracted = fields["date"]
     timings["ticket"] = time.time() - t2 if cfg.get("profile", False) else None
+
+    # Manifest validation (universal)
+    manifest_valid_status = get_manifest_validation_status(manifest_number)
+
+    # Ticket validation (vendor-specific)
+    ticket_rule = vendor_rule.get("ticket_number", {})
+    ticket_validation_regex = ticket_rule.get("validation_regex")
+    ticket_valid_status = get_ticket_validation_status(
+        ticket_number, ticket_validation_regex
+    )
 
     rows = []
     for block_idx, block in enumerate(result.pages[0].blocks):
@@ -344,7 +396,9 @@ def process_page(args):
                 date_extracted,
                 vendor_name,
                 vendor_type,
-                matched_term,  # Optional: which term matched the vendor
+                matched_term,
+                ticket_valid_status,  # instead of "valid"/"invalid"
+                manifest_valid_status,  # instead of "valid"/"invalid"
             ]
             rows.append(row)
 
@@ -387,9 +441,12 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
 
         logging.info(f"Running with {cfg.get('num_workers', 4)} parallel workers.")
         with ThreadPoolExecutor(max_workers=cfg.get("num_workers", 4)) as executor:
-            for rows, timings in executor.map(process_page, page_args):
+            for rows, timings, corrected_img in executor.map(process_page, page_args):
                 results.extend(rows)
                 timings_total.append(timings)
+                if cfg.get("save_corrected_pdf", False) and corrected_img is not None:
+                    corrected_images.append(corrected_img)
+
     else:
         logging.info("Running in serial mode.")
         for arg in page_args:
@@ -413,7 +470,10 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
 # --- Entrypoint ---
 def main():
     cfg = load_config("config.yaml")
+    cfg["DEBUG"] = cfg.get("debug", False)  # Ensure always present
     vendor_rules = load_vendor_rules_from_csv("ocr_keywords.csv")
+    cfg = resolve_input(cfg)
+    # ...rest of your main logic...
 
     batch_mode = cfg.get("batch_mode", False)
     all_results = []
@@ -467,6 +527,8 @@ def main():
                 "vendor_name",
                 "vendor_type",
                 "matched_term",
+                "ticket_valid",
+                "manifest_valid",
             ]
         )
 
@@ -495,6 +557,8 @@ def main():
             vendor_name,
             vendor_type,
             matched_term,
+            ticket_valid,
+            manifest_valid,
         ) = row
 
         key = (file_name, page)
@@ -502,6 +566,9 @@ def main():
             unique_tickets[key] = (
                 file_hash,
                 ticket_number,
+                ticket_valid,
+                manifest_number,
+                manifest_valid,
                 vendor_name,
                 vendor_type,
                 matched_term,
@@ -509,23 +576,33 @@ def main():
             )
 
     # --- Write combined ticket number CSV ---
-    with open("combined_ticket_numbers.csv", "w", newline="", encoding="utf-8") as f:
+    os.makedirs(
+        os.path.dirname(cfg["ticket_numbers_csv"]), exist_ok=True
+    )  # <-- must go BEFORE 'open'
+
+    with open(cfg["ticket_numbers_csv"], "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(
             [
                 "file_name",
-                "file_path",
-                "file_hash",
                 "page",
                 "ticket_number",
+                "ticket_valid",
+                "manifest_number",
+                "manifest_valid",
                 "vendor_name",
                 "vendor_type",
                 "matched_term",
+                "file_hash",
+                "file_path",
             ]
         )
         for (file_name, page), (
             file_hash,
             ticket_number,
+            ticket_valid,
+            manifest_number,
+            manifest_valid,
             vendor_name,
             vendor_type,
             matched_term,
@@ -534,13 +611,16 @@ def main():
             writer.writerow(
                 [
                     file_name,
-                    file_path,
-                    file_hash,
                     page,
                     ticket_number,
+                    ticket_valid,
+                    manifest_number,
+                    manifest_valid,
                     vendor_name,
                     vendor_type,
                     matched_term,
+                    file_hash,
+                    file_path,
                 ]
             )
 
@@ -554,8 +634,29 @@ def main():
             resolution=300,
         )
 
+    # --- Summary stats ---
+    # Count unique pages processed
+    num_pages = len(set((row[0], row[4]) for row in all_results))  # (file_name, page)
+
+    # Count ticket numbers found (non-empty, unique by (file_name, page, ticket_number))
+    ticket_numbers = set()
+    manifest_numbers = set()
+    for row in all_results:
+        file_name = row[0]
+        page = row[4]
+        ticket_number = row[9]
+        manifest_number = row[10]
+        if ticket_number:
+            ticket_numbers.add((file_name, page, ticket_number))
+        if manifest_number:
+            manifest_numbers.add((file_name, page, manifest_number))
+
+    print(f"--- Summary ---")
+    print(f"Pages processed: {num_pages}")
+    print(f"Ticket numbers found: {len(ticket_numbers)}")
+    print(f"Manifest numbers found: {len(manifest_numbers)}")
     print(
-        f"All done! Results saved to {cfg['output_csv']} and combined_ticket_numbers.csv"
+        f"All done! Results saved to {cfg['output_csv']} and {cfg['ticket_numbers_csv']}"
     )
 
 
