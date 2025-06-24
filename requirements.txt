@@ -3,4 +3,15 @@ opencv-python
 pillow
 pytesseract
 pyyaml
+numpy
+pandas
+pytesseract
+python-doctr
+pdf2image
+opencv-python
+PyYAML
+Pillow
+pymupdf
+PyPDF2
+
 

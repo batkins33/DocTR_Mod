@@ -11,3 +11,5 @@ venv/
 test/
 .ruff_cache/
 working_files/
+output/
+

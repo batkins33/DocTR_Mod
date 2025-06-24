@@ -1,0 +1,13 @@
+input_pdf: ./data/sample.pdf
+input_dir: ./data/
+batch_mode: true
+output_csv: ./output/ocr/all_results.csv
+ticket_numbers_csv: ./output/ocr/ticket_numbers.csv
+output_images_dir: ./output/images/
+draw_roi: true
+save_corrected_pdf: true
+corrected_pdf_path: ./output/ocr/corrected.pdf
+parallel: true
+num_workers: 4
+debug: false
+profile: false

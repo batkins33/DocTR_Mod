@@ -4,22 +4,25 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", help="Input file or directory")
     return parser.parse_args()
 
+
 def pick_file_or_folder():
     root = tk.Tk()
     root.withdraw()  # Hide main window
     choice = input("Pick [F]ile or [D]irectory? ").strip().lower()
-    if choice == 'f':
+    if choice == "f":
         return filedialog.askopenfilename(title="Select input PDF or image file")
-    elif choice == 'd':
+    elif choice == "d":
         return filedialog.askdirectory(title="Select input directory")
     else:
         print("Invalid choice.")
         return None
+
 
 def resolve_input(cfg):
     args = parse_args()

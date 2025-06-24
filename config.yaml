@@ -1,8 +1,18 @@
-batch_mode: false                       # true = process all files in input_dir, false = just input_pdf
-input_pdf:
+batch_mode: false            # true = process input_dir, false = just input_pdf
+input_pdf: U:\Dev\projects\DocTR_Mod\output\final_pdf\corrected_pages.pdf
 input_dir:
-output_csv: ./output/ocr/combined_results.csv
+
+# Combined OCR dump (page-level)
+output_csv: ./output/logs/ocr/combined_results.csv
+
+# Deduped ticket numbers
 ticket_numbers_csv: ./output/ticket_number/combined_ticket_numbers.csv
+
+# Pages that had *no* ticket numbers
+ticket_number_exceptions_csv: ./output/ticket_number/ticket_number_exceptions.csv
+
+# Summary stats
+summary_report_dir: ./output/logs  # directory only, not the full filename
 
 vendor_keywords_csv: ./ocr_keywords.csv
 extraction_rules_yaml: ./extraction_rules.yaml
@@ -14,10 +24,23 @@ num_workers: 12                           # Start with 8, can go higher if you w
 identifier: ""                            # Optional: set if you want
 profile: true                             # Get timing info, helpful for tuning
 
-save_images: true                         # Only if you want images, else keep false for speed
+save_images: false                         # Only if you want images, else keep false for speed
 output_images_dir: ./output/images
 draw_roi: true                           # Only true if you want ROI images
 draw_ocr_boxes: false                     # Only true if you want annotated OCR boxes
-save_corrected_pdf: false
-corrected_pdf_path: ./output/final_pdf/corrected_pages.pdf                   # or another file name
-debug: false  # or false
+save_corrected_pdf: true
+corrected_pdf_path: ./output/final_pdf/corrected_pages2.pdf                   # or another file name
+debug: false  # or true
+
+preflight:
+  enabled: false  # Set to true to enable preflight checks
+  dpi_threshold: 150
+
+# Directory for dumping bad preflight PDFs (e.g., blank or unreadable pages)
+exceptions_dir: ./output/exceptions/pdf
+
+# Directory for saving single-page PNGs of failed OCR pages
+runtime_error_images: ./output/exceptions/images
+
+# Directory for timestamped merged exception CSVs
+exceptions_csv_dir: ./output/logs/exceptions
