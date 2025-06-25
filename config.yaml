@@ -1,5 +1,5 @@
 batch_mode: false            # true = process input_dir, false = just input_pdf
-input_pdf: U:\Dev\projects\DocTR_Mod\output\final_pdf\corrected_pages.pdf
+input_pdf: C:\Users\brian.atkins\OneDrive - Lindamood Demolition\24-105 PHMS NPC - Documents\truck tickets\2025-05-31\24-105_2025-05-31_class2_beck_WM_86.pdf
 input_dir:
 
 # Combined OCR dump (page-level)
@@ -29,7 +29,7 @@ output_images_dir: ./output/images
 draw_roi: true                           # Only true if you want ROI images
 draw_ocr_boxes: false                     # Only true if you want annotated OCR boxes
 save_corrected_pdf: true
-corrected_pdf_path: ./output/final_pdf/corrected_pages2.pdf                   # or another file name
+corrected_pdf_path: ./output/final_pdf/corrected_pages.pdf                   # or another file name
 debug: false  # or true
 
 preflight:

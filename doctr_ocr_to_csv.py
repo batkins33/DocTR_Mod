@@ -209,7 +209,13 @@ def extract_vendor_fields(
             result[field] = extract_field(result_page, field_rules, pil_img, cfg)
         else:
             result[field] = None
+
     return result
+
+
+# Remove spaces/special characters for filenames
+def safe_filename(val):
+    return re.sub(r"[^\w\-]", "_", str(val))
 
 
 def normalize_ticket_number(raw):
@@ -394,25 +400,42 @@ def process_page(args):
         for line in block.lines
     )
     vendor_name, vendor_type, matched_term = find_vendor(full_text, vendor_rules)
-    # ...after vendor_name, vendor_type, matched_term = find_vendor(full_text, vendor_rules)
     vendor_rule = extraction_rules.get(vendor_name, extraction_rules.get("DEFAULT"))
 
-    # Save Images & Draw ROI from extraction rules
+    # --- PATCHED: Defer image saving until after ticket/vendor extracted ---
+
+    t2 = time.time()
+    fields = extract_vendor_fields(
+        result.pages[0], vendor_name, extraction_rules, pil_img, cfg
+    )
+    ticket_number = normalize_ticket_number(fields["ticket_number"])
+    vendor_str = safe_filename(vendor_name or "unknown")
+    ticket_str = safe_filename(ticket_number or "none")
+    base = f"{page_num:04d}_{vendor_str}_{ticket_str}"  # PATCHED HERE
+
+    # Prepare output dir
     file_stem = os.path.splitext(os.path.basename(cfg["input_pdf"]))[0].replace(
         " ", "_"
     )
-    image_output_dir = os.path.join(
-        cfg.get("output_images_dir", "./output/images"), file_stem
-    )
-    os.makedirs(image_output_dir, exist_ok=True)
-    base = f"{file_stem}_{page_num:04d}"
-    pil_img.save(os.path.join(image_output_dir, f"{base}.png"))
 
+    # Define separate dirs
+    base_image_dir = os.path.join(
+        cfg.get("output_images_dir", "./output/images"), file_stem, "base"
+    )
+    roi_image_dir = os.path.join(
+        cfg.get("output_images_dir", "./output/images"), file_stem, "roi"
+    )
+    os.makedirs(base_image_dir, exist_ok=True)
+    os.makedirs(roi_image_dir, exist_ok=True)
+
+    # Save base image
+    pil_img.save(os.path.join(base_image_dir, f"{base}.png"))
+
+    # Save ROI image if needed
     if cfg.get("draw_roi", False):
         arr = np.array(pil_img)
         field_rules = vendor_rule.get("ticket_number", {})
         roi = field_rules.get("roi") or field_rules.get("box")
-
         if roi and len(roi) == 4:
             try:
                 if max(roi) <= 1:
@@ -422,7 +445,6 @@ def process_page(args):
                 else:
                     pt1 = (int(roi[0]), int(roi[1]))
                     pt2 = (int(roi[2]), int(roi[3]))
-
                 cv2.rectangle(arr, pt1, pt2, (255, 0, 0), 2)
             except Exception as e:
                 logging.warning(
@@ -433,36 +455,9 @@ def process_page(args):
                 f"ROI not defined or wrong length on page {page_num}: {roi}"
             )
 
-        cv2.imwrite(os.path.join(image_output_dir, f"{base}_roi.png"), arr[..., ::-1])
+        # PATCHED: Save ROI image using same naming format
+        cv2.imwrite(os.path.join(roi_image_dir, f"{base}_roi.png"), arr[..., ::-1])
 
-    field_rules = vendor_rule.get(
-        "ticket_number", {}
-    )  # or whichever field you want ROI for
-
-    # Determine ROI based on field rules
-    roi = None
-    if field_rules.get("method") in ["roi", "box"]:
-        roi = field_rules.get("roi") or field_rules.get("box")
-        # If normalized, multiply by image size as in your extract_field()
-        if roi and max(roi) <= 1:
-            width, height = pil_img.size
-            roi_pixels = [
-                int(roi[0] * width),
-                int(roi[1] * height),
-                int(roi[2] * width),
-                int(roi[3] * height),
-            ]
-            roi = [[roi_pixels[0], roi_pixels[1]], [roi_pixels[2], roi_pixels[3]]]
-        else:
-            roi = [[roi[0], roi[1]], [roi[2], roi[3]]]  # if already pixels
-
-    # Ticket number
-    t2 = time.time()
-    fields = extract_vendor_fields(
-        result.pages[0], vendor_name, extraction_rules, pil_img, cfg
-    )
-
-    ticket_number = normalize_ticket_number(fields["ticket_number"])
     manifest_number = fields["manifest_number"]
     material_type = fields["material_type"]
     truck_number = fields["truck_number"]
@@ -488,7 +483,7 @@ def process_page(args):
             row = [
                 identifier or "",
                 file_hash,
-                page_image_hash,  # <-- here!
+                page_image_hash,
                 page_num,
                 block_idx,
                 "printed",
@@ -523,35 +518,48 @@ process_page.model = None
 # --- Main OCR to CSV Pipeline ---
 def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     # ─── Setup ────────────────────────────────────────────────────────────────
+    timing_steps = {}
+
+    # STEP: Counting pages in PDF
+    t0 = time.time()
     print("    - Counting pages in PDF...")
     file_hash = get_file_hash(cfg["input_pdf"])
     identifier = cfg.get("identifier", "")
     total_pages = count_total_pages([cfg["input_pdf"]], cfg)
+    timing_steps["count_pages_sec"] = time.time() - t0
 
-    # 1) Preflight: skip zero/low-DPI pages
+    # STEP: Running preflight checks (blank/low-DPI pages)
+    t1 = time.time()
     print("    - Running preflight checks (blank/low-DPI pages)...")
     skip_pages, exceptions = run_preflight(cfg["input_pdf"], cfg)
-    logging.info(f"Preflight will skip pages: {sorted(skip_pages)}")
+    timing_steps["preflight_sec"] = time.time() - t1
 
-    # 2) Init OCR model once
+    # STEP: Loading OCR model
+    t2 = time.time()
     print("    - Loading OCR model...")
     model = ocr_predictor(pretrained=True)
     process_page.model = model
+    timing_steps["load_model_sec"] = time.time() - t2
 
-    # 3) Prepare to collect results / images
+    # STEP: Collecting Results / Initialize Results
+    t3 = time.time()
     print("    - Collecting Results...")
     corrected_images = [] if cfg.get("save_corrected_pdf", False) else None
     results = []
     timings_total = []
     processed_pages = 0
+    timing_steps["init_results_sec"] = time.time() - t3
 
-    # 4) Load all page‐images up front
+    # STEP: Loading Results / Images
+    t4 = time.time()
     print("    - Loading Results...")
     all_images = list(
         extract_images_generator(cfg["input_pdf"], poppler_path=cfg.get("poppler_path"))
     )
+    timing_steps["load_images_sec"] = time.time() - t4
 
-    # 5) Build page_args, skipping preflight pages
+    # STEP: Rotating Pages & Building page_args
+    t5 = time.time()
     print("    - Rotating Pages...")
     page_args = []
     for idx, pil_img in enumerate(all_images):
@@ -559,14 +567,12 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
         if page_num in skip_pages:
             logging.info(f"Skipping page {page_num} (preflight)")
             continue
-
         if cfg.get("correct_orientation", True):
             pil_img = correct_image_orientation(pil_img, page_num)
-
         if corrected_images is not None:
             corrected_images.append(pil_img.convert("RGB"))
-
         page_args.append((idx, pil_img, cfg, file_hash, identifier, extraction_rules))
+    timing_steps["rotate_pages_sec"] = time.time() - t5
 
     total_to_process = len(page_args)
 
@@ -651,18 +657,34 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
         for row in results:
             row.insert(0, cfg.get("file_path", ""))
             row.insert(0, cfg.get("file_name", ""))
-        return results, corrected_images, processed_pages, total_pages, exceptions
+        return (
+            results,
+            corrected_images,
+            processed_pages,
+            total_pages,
+            exceptions,
+            timing_steps,
+        )
+
     else:
         # … legacy per-file CSV code …
         pass
 
 
-def build_roi_image_path(file_path, page_num, output_images_dir, output_csv):
+def build_roi_image_path(
+    file_path,
+    page_num,
+    output_images_dir,
+    output_csv,
+    vendor_name="unknown",
+    ticket_number="none",
+):
     file_stem = os.path.splitext(os.path.basename(file_path))[0].replace(" ", "_")
+    vendor_str = safe_filename(vendor_name or "unknown")
+    ticket_str = safe_filename(ticket_number or "none")
+    base = f"{int(page_num):04d}_{vendor_str}_{ticket_str}"
     image_output_dir = os.path.join(output_images_dir, file_stem)
-    base = f"{file_stem}_{int(page_num):04d}"
     roi_image = os.path.join(image_output_dir, f"{base}_roi.png")
-    # Relative path for hyperlink
     roi_image_rel = os.path.relpath(roi_image, start=os.path.dirname(output_csv))
     return roi_image_rel
 
@@ -712,37 +734,24 @@ def main():
         file_cfg["file_name"] = os.path.basename(pdf_file)
         file_cfg["file_path"] = pdf_file
 
-        results, corrected_images, proc_pages, tot_pages, excs = process_pdf_to_csv(
-            file_cfg, vendor_rules, extraction_rules, return_rows=True
+        results, corrected_images, proc_pages, tot_pages, excs, timing_steps = (
+            process_pdf_to_csv(
+                file_cfg, vendor_rules, extraction_rules, return_rows=True
+            )
         )
-
-        # ⬅️ ADD THIS BLOCK
-        tickets_found = sum(1 for row in results if row[11])
-        file_duration = time.time() - file_start
-        performance_data.append(
-            {
-                "file": os.path.basename(pdf_file),
-                "pages": tot_pages,
-                "tickets_found": tickets_found,
-                "exceptions": len(excs),
-                "duration_sec": round(file_duration, 2),
-            }
-        )
-
-        # (existing code that appends results, images, etc.)
 
         # Capture per-file timing and performance stats
-        file_duration = time.time() - file_start  # You’ll define file_start above
-        tickets_found = sum(1 for row in results if row[11])  # row[11] = ticket_number
-        performance_data.append(
-            {
-                "file": os.path.basename(pdf_file),
-                "pages": tot_pages,
-                "tickets_found": tickets_found,
-                "exceptions": len(excs),
-                "duration_sec": round(file_duration, 2),
-            }
-        )
+        tickets_found = sum(1 for row in results if row[11])
+        file_duration = time.time() - file_start
+        file_perf = {
+            "file": os.path.basename(pdf_file),
+            "pages": tot_pages,
+            "tickets_found": tickets_found,
+            "exceptions": len(excs),
+            "duration_sec": round(file_duration, 2),
+        }
+        file_perf.update({k: round(v, 2) for k, v in timing_steps.items()})
+        performance_data.append(file_perf)
 
         # collect results & images
         all_results.extend(results)
@@ -788,6 +797,7 @@ def main():
             key = (row[0], row[5], row[12])  # (file_name, page, manifest_number)
             valid_manifests.add(key)
     valid_manifest_numbers = len(valid_manifests)
+
     # Count manifests for review
     review_manifests = set()
     for row in all_results:
@@ -835,6 +845,7 @@ def main():
     os.makedirs(os.path.dirname(cfg["output_csv"]), exist_ok=True)
     output_path = cfg["output_csv"]
     file_exists = os.path.isfile(output_path)
+    all_results.sort(key=lambda row: (row[0], int(row[5])))  # (file_name, page_num)
 
     with open(output_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -871,6 +882,11 @@ def main():
     os.makedirs(os.path.dirname(cfg["ticket_numbers_csv"]), exist_ok=True)
     ticket_csv_path = cfg["ticket_numbers_csv"]
     file_exists = os.path.isfile(ticket_csv_path)
+
+    # Sort tickets by file_name (v[8]) and page (v[0]) before writing:
+    sorted_unique_tickets = sorted(
+        unique_tickets.values(), key=lambda v: (v[8], int(v[0]))
+    )
 
     with open(ticket_csv_path, "a", newline="", encoding="utf-8") as tf:
         w = csv.writer(tf)
@@ -966,18 +982,29 @@ def main():
             logging.error(f"Could not save corrected PDF: {e}")
 
     # Write performance CSV
-    perf_csv = "./output/ocr/performance_report1.csv"
+    perf_csv = "./output/ocr/performance_report.csv"
     os.makedirs(os.path.dirname(perf_csv), exist_ok=True)
     file_exists = os.path.isfile(perf_csv)
 
+    perf_fieldnames = [
+        "file",
+        "pages",
+        "tickets_found",
+        "exceptions",
+        "duration_sec",
+        "count_pages_sec",
+        "preflight_sec",
+        "load_model_sec",
+        "init_results_sec",
+        "load_images_sec",
+        "rotate_pages_sec",
+    ]
+
     with open(perf_csv, "a", newline="", encoding="utf-8") as pf:
-        writer = csv.DictWriter(
-            pf,
-            fieldnames=["file", "pages", "tickets_found", "exceptions", "duration_sec"],
-        )
+        writer = csv.DictWriter(pf, fieldnames=perf_fieldnames)
         if not file_exists:
-            writer.writeheader()
-        writer.writerows(performance_data)
+            writer.writeheader()  # <--- Write header if new file
+        writer.writerows(performance_data)  # <--- Actually write the data rows!
 
     logging.info(f"Wrote performance report to {perf_csv}")
 

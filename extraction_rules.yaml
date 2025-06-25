@@ -3,24 +3,24 @@ JDandSon:
     method: roi
     roi: [0.658, 0.163, 0.999, 0.281]
     label: "PIT/DUMP TICKET"
-    regex: '(?<!№)\b(?:A\s?\d{5,6}|NO\s?\d{5,6}|\d{5,6})\b' # match 5 or 6 digits, optionally preceded by "A" or "NO"
-    validation_regex: '^(A\d{5,6}|\d{5,6})$' # must start with "A" or be 5 or 6 digits, not preceded by "№"
+    regex: '(?<!№)\b(?:A\s?\d{5,6}|NO\s?\d{5,6}|\d{5,6})\b'     # match 5 or 6 digits, optionally preceded by "A" or "NO"
+    validation_regex: '^(A\d{5,6}|\d{5,6})$'      # must start with "A" or be 5 or 6 digits, not preceded by "№"
     fallback_method: below_label
-    fallback_regex: '(?<!№)\b(?:A\s?\d{5,6}|NO\s?\d{5,6}|\d{5,6})\b' # match 5 or 6 digits, optionally preceded by "A" or "NO"
+    fallback_regex: '(?<!№)\b(?:A\s?\d{5,6}|NO\s?\d{5,6}|\d{5,6})\b'       # match 5 or 6 digits, optionally preceded by "A" or "NO"
 
   manifest_number:
     method: roi
     roi: [ 0.711, 0.031, 0.985, 0.177 ]
     label: "PIT/DUMP TICKET#"
-    regex: "\\d{8,}$" # must be at least 8 digits
+    regex: "\\d{8,}$"     # must be at least 8 digits
   material_type:
     method: label_right
     label: "MATERIAL"
-    regex: "[A-Za-z ]+" # match letters and spaces
+    regex: "[A-Za-z ]+"     # match letters and spaces
   truck_number:
     method: label_right
     label: "TRUCK #"
-    regex: "\\d+" # match one or more digits
+    regex: "\\d+"         # match one or more digits
   date:
     method: roi
     roi: [ 0.720, 0.367, 0.996, 0.441 ]
@@ -83,21 +83,23 @@ WL_Reid:
 CorpoTechs:
   ticket_number:
     method: roi
-    roi: [0.728, 0.141, 1.001, 0.275]
-#    roi: [0.641, 0.113, 1.002, 0.281]
+#     roi: [ 0.566, 0.138, 0.995, 0.279 ]
+    roi: [ 0.641, 0.113, 0.999, 0.281 ]
     label:
       - "office: 469-845-3334"
+#      - "No"
+#      - "N9"
     regex: '(?<!№)\b\d{4,6}\b'           # match 4–6 digits not preceded by №
     validation_regex: '^\d{4,6}$'        # exactly 4–6 digits only
   manifest_number:
     method: roi
-    roi: [ 0.000, 0.020, 0.330, 0.232 ]
+    roi: [ 0.001, 0.020, 0.330, 0.232 ]
 #    roi: [ 0.013, 0.036, 0.304, 0.200 ]
     label: "pit ticket#"
     regex: "\\d{8,}$"
   material_type:
     method: roi
-    roi: [0.000, 0.644, 0.515, 0.789]
+    roi: [ 0.000, 0.644, 0.515, 0.789 ]
     label: "COMMODITY"
     regex: "[A-Za-z ]+"
   truck_number:
@@ -114,23 +116,23 @@ Lindamood:
   ticket_number:
     method: roi
     roi: [ 0.661, 0.104, 0.982, 0.204 ]
-    regex: "\\d{5,}$" # must be at least 5 digits
-  validation_regex: '^\d{5,6}$'
+    regex: "\\d{5,}$"    # must be at least 5 digits
+    validation_regex: '^\d{5,6}$'   # must be exactly 5 or 6 digits
   manifest_number:
     method: roi
     roi: [ 0.423, 0.404, 0.971, 0.502 ]
     label: "MANIFEST #"
-    regex: "\\d{8,}" # must be at least 8 digits
+    regex: "\\d{8,}"     # must be at least 8 digits
   material_type:
     method: roi
     roi: [ 0.443, 0.331, 0.969, 0.410 ]
     label: "COMMODITY"
-    regex: "[A-Za-z ]+" # match letters and spaces
+    regex: "[A-Za-z ]+"     # match letters and spaces
   truck_number:
     method: roi
     roi: [ 0.477, 0.717, 0.719, 0.845 ]
     label: "TRUCK #"
-    regex: "\\d+" # match one or more digits
+    regex: "\\d+"      # match one or more digits
   date:
     method: roi
     roi: [ 0.419, 0.153, 0.971, 0.267 ]
@@ -141,8 +143,9 @@ RCI:
   ticket_number:
     method: roi
     roi: [ 0.566, 0.169, 0.942, 0.251 ]
-    regex: "\\d{5,}$"
-  #    validation_regex: "^123\\d{5}$"   # must start with 123, total 8 digits
+    label: "ticket #"
+    regex: "\\d{4,}$"   # must be at least 4 digits
+    validation_regex: '^\d{4}$'   # must be exactly 4 digits
   manifest_number:
     method: roi
     roi: [ 0.563, 0.300, 0.945, 0.384 ]
@@ -151,7 +154,7 @@ RCI:
   material_type:
     method: roi
     roi: [ 0.042, 0.562, 0.250, 0.677 ]
-    label: "MATERIAL HAULED"
+    label: "MATERIAL HAULED:"
     regex: "[A-Za-z ]+"
   truck_number:
     method: roi
@@ -161,15 +164,15 @@ RCI:
   date:
     method: roi
     roi: [ 0.543, 0.231, 0.949, 0.318 ]
-    label: "DATE"
+    label: "DATE:"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
 Roadstar:
   ticket_number:
     method: roi
-    roi: [0.692, 0.024, 1.000, 0.240]
+    roi: [ 0.692, 0.024, 0.999, 0.240 ]
     regex: '\d{5,6}'             # match 5 or 6 digits
-    validation_regex: '^\d{5,6}$' # validate exactly 5 or 6 digits
+    validation_regex: '^\d{5,6}$'   # validate exactly 5 or 6 digits
   manifest_number:
     method: roi
     roi: [ 0.536, 0.174, 0.988, 0.383 ]
@@ -230,15 +233,14 @@ Roberts:
 Tarango:
   ticket_number:
     method: roi
-    #roi: [ 0.818, 0.030, 0.999, 0.167 ]
     roi: [ 0.639, 0.005, 0.999, 0.244 ]
-    regex: "\\d{6}" # must be exactly 6 digits
-    validation_regex: ^\d{6}$   # must be exactly 6 digits
+    regex: "\\d{6}"   # must be exactly 6 digits
+    validation_regex: '^\d{6}$'   # must be exactly 6 digits
   manifest_number:
     method: roi
     roi: [ 0.145, 0.049, 0.480, 0.193 ]
     label: "PIT TICKET#"
-    regex: "\\d{8,}"
+    regex: "\\d{8,}"   # must be at least 8 digits
   material_type:
     method: roi
     roi: [ 0.487, 0.612, 0.790, 0.701 ]
@@ -250,7 +252,8 @@ Tarango:
     label: "Truck#"
     regex: "\\d+"
   date:
-    method: label_right
+    method: roi
+    roi: [ 0.207, 0.294, 0.434, 0.382 ]
     label: "Date#"
     regex: "\\d{1,2}[-/ ]\\w{3,9}[-/ ]\\d{2,4}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}"
 
