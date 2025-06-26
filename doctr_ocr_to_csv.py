@@ -276,7 +276,6 @@ def extract_field(result_page, field_rules, pil_img=None, cfg=None):
                 int(roi[2] * width),
                 int(roi[3] * height),
             ]
-            roi_box = pil_img.crop((x0, y0, x1, y1))
 
         candidates = []
         for block in result_page.blocks:
@@ -295,18 +294,18 @@ def extract_field(result_page, field_rules, pil_img=None, cfg=None):
         labels = field_rules.get("label", "")
         if isinstance(labels, str):
             # split comma-separated strings into list, strip whitespace
-            labels = [l.strip().lower() for l in labels.split(",") if l.strip()]
+            labels = [label_term.strip().lower() for label_term in labels.split(",") if label_term.strip()]
         elif isinstance(labels, list):
-            labels = [l.lower() for l in labels]
+            labels = [label_term.lower() for label_term in labels]
         else:
             labels = []
 
         # **Filter out label if provided**
         labels = field_rules.get("label", "")
         if isinstance(labels, str):
-            labels = [l.strip().lower() for l in labels.split(",") if l.strip()]
+            labels = [label_term.strip().lower() for label_term in labels.split(",") if label_term.strip()]
         elif isinstance(labels, list):
-            labels = [l.lower() for l in labels]
+            labels = [label_term.lower() for label_term in labels]
         else:
             labels = []
         if labels:
@@ -770,7 +769,6 @@ def main():
         print(f"Done: {os.path.basename(pdf_file)}")
 
     # --- Calculate stats before writing summary files ---
-    num_pages = len(set((row[0], row[5]) for row in all_results))  # (file_name, page)
     unique_tickets = {}
     for row in all_results:
         vendor_name = row[16]
