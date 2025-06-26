@@ -7,6 +7,8 @@ manifest numbers and other key fields.
 ## Prerequisites
 - **Python** 3.8 or newer (3.10+ recommended)
 - **System tools**: [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) and [Poppler](http://blog.alivate.com.au/poppler-windows/) for PDF rendering
+  - On **Windows**, set the `POPPLER_PATH` environment variable to Poppler's `bin` directory (or add it to `PATH`).
+  - On **macOS** or **Linux**, install Poppler via your package manager (`brew install poppler` or `apt-get install poppler-utils`). If the tools are not in your `PATH`, set `POPPLER_PATH` to the install location.
 - Install the required Python packages:
   ```bash
   pip install -r requirements.txt
