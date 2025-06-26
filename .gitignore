@@ -8,10 +8,3 @@ venv/
 /output/
 /.run/
 /.ruff_cache/
-t2.py
-/working_files/
-/output/final_pdf/
-/output/images/
-/output/logs/
-/output/ocr/
-/output/ticket_number/

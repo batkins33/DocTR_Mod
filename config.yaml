@@ -1,6 +1,6 @@
 batch_mode: true            # true = process input_dir, false = just input_pdf
 input_pdf:
-input_dir: C:\Users\brian.atkins\OneDrive - Lindamood Demolition\24-105 PHMS NPC - Documents\truck tickets\2025-06-19\export
+input_dir:
 
 # Combined OCR dump (page-level)
 output_csv: ./output/logs/ocr/combined_results.csv

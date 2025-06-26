@@ -1,0 +1,3 @@
+vendor = "roberts"  # e.g., detected from filename or user input
+roi_cfg = cfg["rois"].get(vendor, cfg["rois"][cfg.get("default_roi", "roberts")])
+roi = ((roi_cfg["x0"], roi_cfg["y0"]), (roi_cfg["x1"], roi_cfg["y1"]))
