@@ -16,7 +16,9 @@ summary_report_dir: ./output/logs  # directory only, not the full filename
 
 vendor_keywords_csv: ./ocr_keywords.csv
 extraction_rules_yaml: ./extraction_rules.yaml
-poppler_path: C:/Poppler/poppler-24.08.0/Library/bin      # Poppler path for Windows/PDF2Image
+# Poppler path for PDF rendering. Leave blank to use the POPPLER_PATH
+# environment variable or system PATH.
+poppler_path: ""
 
 correct_orientation: true                 # Set false if docs are always upright
 parallel: true                            # USE parallel processing!

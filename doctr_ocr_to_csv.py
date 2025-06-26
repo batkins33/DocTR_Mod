@@ -71,7 +71,10 @@ def parse_roi(roi_cfg):
 
 def load_config(path="config.yaml"):
     with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        cfg = yaml.safe_load(f)
+    if not cfg.get("poppler_path"):
+        cfg["poppler_path"] = os.environ.get("POPPLER_PATH")
+    return cfg
 
 
 def count_total_pages(pdf_files, cfg):
