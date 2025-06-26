@@ -71,10 +71,7 @@ def parse_roi(roi_cfg):
 
 def load_config(path="config.yaml"):
     with open(path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
-    if not cfg.get("poppler_path"):
-        cfg["poppler_path"] = os.environ.get("POPPLER_PATH")
-    return cfg
+        return yaml.safe_load(f)
 
 
 def count_total_pages(pdf_files, cfg):
@@ -279,6 +276,7 @@ def extract_field(result_page, field_rules, pil_img=None, cfg=None):
                 int(roi[2] * width),
                 int(roi[3] * height),
             ]
+            roi_box = pil_img.crop((x0, y0, x1, y1))
 
         candidates = []
         for block in result_page.blocks:
@@ -297,18 +295,18 @@ def extract_field(result_page, field_rules, pil_img=None, cfg=None):
         labels = field_rules.get("label", "")
         if isinstance(labels, str):
             # split comma-separated strings into list, strip whitespace
-            labels = [label_term.strip().lower() for label_term in labels.split(",") if label_term.strip()]
+            labels = [l.strip().lower() for l in labels.split(",") if l.strip()]
         elif isinstance(labels, list):
-            labels = [label_term.lower() for label_term in labels]
+            labels = [l.lower() for l in labels]
         else:
             labels = []
 
         # **Filter out label if provided**
         labels = field_rules.get("label", "")
         if isinstance(labels, str):
-            labels = [label_term.strip().lower() for label_term in labels.split(",") if label_term.strip()]
+            labels = [l.strip().lower() for l in labels.split(",") if l.strip()]
         elif isinstance(labels, list):
-            labels = [label_term.lower() for label_term in labels]
+            labels = [l.lower() for l in labels]
         else:
             labels = []
         if labels:
@@ -772,6 +770,7 @@ def main():
         print(f"Done: {os.path.basename(pdf_file)}")
 
     # --- Calculate stats before writing summary files ---
+    num_pages = len(set((row[0], row[5]) for row in all_results))  # (file_name, page)
     unique_tickets = {}
     for row in all_results:
         vendor_name = row[16]

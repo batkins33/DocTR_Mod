@@ -11,9 +11,9 @@ CSV reports.
 ## Prerequisites
 
 - **Python**: 3.8+ (recommended 3.10+)
-- **System Tools**: [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) and [Poppler](http://blog.alivate.com.au/poppler-windows/)
-  - On **Windows**, set the `POPPLER_PATH` environment variable to Poppler's `bin` directory (or add it to `PATH`).
-  - On **macOS** or **Linux**, install Poppler with your package manager (`brew install poppler` or `apt-get install poppler-utils`). If the tools are not in your `PATH`, set `POPPLER_PATH` to the install location.
+- **System Tools
+  **: [Tesseract OCR](https://github.com/tesseract-ocr/tesseract), [Poppler](http://blog.alivate.com.au/poppler-windows/) (
+  Windows: add Poppler's `bin` to your PATH)
 - **Python Packages**:
 
 ---
@@ -82,10 +82,3 @@ parallel: true
 num_workers: 4
 debug: false
 profile: false
-
-### Poppler Path
-
-`poppler_path` in `config.yaml` may be left blank. When blank, the script will
-look for the environment variable `POPPLER_PATH`. Set this variable to the
-directory containing Poppler's executables if they are not already in your
-`PATH`.
