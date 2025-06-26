@@ -7,6 +7,7 @@ import pytesseract
 from PIL import Image
 from PyPDF2 import PdfReader, PdfWriter
 from pdf2image import convert_from_path, pdfinfo_from_path
+from tqdm import tqdm
 
 
 def count_total_pages(pdf_files, cfg):
@@ -62,7 +63,7 @@ def preflight_pages(pdf_path, cfg):
     """
     bad = []
     total = count_total_pages([pdf_path], cfg)
-    for p in range(1, total + 1):
+    for p in tqdm(range(1, total + 1), desc="Preflight", unit="page"):
         if not is_page_ocrable(pdf_path, p, cfg):
             bad.append((p, "preflight-OCR failed"))
     return bad
