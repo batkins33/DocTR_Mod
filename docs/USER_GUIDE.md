@@ -76,6 +76,7 @@ output_csv: ./output/ocr/all_results.csv
 ticket_numbers_csv: ./output/ocr/ticket_numbers.csv
 output_images_dir: ./output/images/
 draw_roi: true
+orientation_check: tesseract  # tesseract, doctr, or none
 save_corrected_pdf: true
 corrected_pdf_path: ./output/ocr/corrected.pdf
 parallel: true
@@ -83,9 +84,15 @@ num_workers: 4
 debug: false
 profile: false
 
+`orientation_check` determines how page rotation is handled:
+- `tesseract` (default): use Tesseract's OSD to correct orientation
+- `doctr`: use Doctr's angle prediction model
+- `none`: skip orientation checks
+
 ### Output Files
 
 - `combined_results.csv` – raw OCR results for every page
 - `ticket_numbers.csv` – unique tickets
 - `ticket_number_exceptions.csv` – pages with no ticket number
 - `duplicate_ticket_exceptions.csv` – duplicate tickets and pages with no OCR text
+

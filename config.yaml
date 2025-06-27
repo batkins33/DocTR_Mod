@@ -18,7 +18,7 @@ vendor_keywords_csv: ./ocr_keywords.csv
 extraction_rules_yaml: ./extraction_rules.yaml
 poppler_path: C:/Poppler/poppler-24.08.0/Library/bin      # Poppler path for Windows/PDF2Image
 
-correct_orientation: true                 # Set false if docs are always upright
+orientation_check: tesseract            # tesseract, doctr, or none
 parallel: true                            # USE parallel processing!
 num_workers: 16                           # Start with 8, can go higher if you want
 identifier: ""                            # Optional: set if you want

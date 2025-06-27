@@ -170,22 +170,36 @@ def extract_images_generator(filepath, poppler_path=None):
 
 
 # --- Orientation Correction ---
-def correct_image_orientation(pil_img, page_num=None):
+def correct_image_orientation(pil_img, page_num=None, method="tesseract"):
+    """Rotate a PIL image based on the chosen orientation method."""
+    if method == "none":
+        return pil_img
+
     try:
-        osd = pytesseract.image_to_osd(pil_img)
-        rotation_match = re.search(r"Rotate: (\d+)", osd)
-        if rotation_match:
-            rotation = int(rotation_match.group(1))
-            logging.info(f"Page {page_num}: OSD rotation = {rotation} degrees")
-            if rotation == 90:
-                return pil_img.rotate(-90, expand=True)
-            elif rotation == 180:
-                return pil_img.rotate(180, expand=True)
-            elif rotation == 270:
-                return pil_img.rotate(-270, expand=True)
+        if method == "doctr":
+            if correct_image_orientation.angle_model is None:
+                from doctr.models import angle_predictor
+
+                correct_image_orientation.angle_model = angle_predictor(
+                    pretrained=True
+                )
+            angle = correct_image_orientation.angle_model([pil_img])[0]
+            rotation = int(round(angle / 90.0)) * 90 % 360
+        else:  # tesseract
+            osd = pytesseract.image_to_osd(pil_img)
+            rotation_match = re.search(r"Rotate: (\d+)", osd)
+            rotation = int(rotation_match.group(1)) if rotation_match else 0
+
+        logging.info(f"Page {page_num}: rotation = {rotation} degrees")
+        if rotation in {90, 180, 270}:
+            return pil_img.rotate(-rotation, expand=True)
     except Exception as e:
         logging.warning(f"Orientation error (page {page_num}): {e}")
+
     return pil_img
+
+
+correct_image_orientation.angle_model = None
 
 
 # --- Ticket Extraction ---
@@ -371,8 +385,9 @@ def process_page(args):
     t0 = time.time()
 
     # Orientation
-    if cfg.get("correct_orientation", True):
-        pil_img = correct_image_orientation(pil_img, page_num=page_num)
+    orientation_method = cfg.get("orientation_check", "tesseract")
+    if orientation_method != "none":
+        pil_img = correct_image_orientation(pil_img, page_num=page_num, method=orientation_method)
         page_image_hash = get_image_hash(pil_img)
     timings["orientation"] = time.time() - t0 if cfg.get("profile", False) else None
 
@@ -551,8 +566,24 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     # STEP: Rotating Pages & Processing
     t5 = time.time()
     print("    - Rotating Pages...")
-    total_to_process = total_pages - len(skip_pages)
 
+    page_args = []
+    for idx, pil_img in enumerate(tqdm(all_images, desc="Preparing pages", unit="page")):
+        page_num = idx + 1
+        if page_num in skip_pages:
+            logging.info(f"Skipping page {page_num} (preflight)")
+            continue
+        orientation_method = cfg.get("orientation_check", "tesseract")
+        if orientation_method != "none":
+            pil_img = correct_image_orientation(pil_img, page_num, method=orientation_method)
+        if corrected_images is not None:
+            corrected_images.append(pil_img.convert("RGB"))
+        page_args.append((idx, pil_img, cfg, file_hash, identifier, extraction_rules))
+    timing_steps["rotate_pages_sec"] = time.time() - t5
+
+    total_to_process = len(page_args)
+
+    # ─── Process Pages (parallel or serial with tqdm) ─────────────────────────
     if cfg.get("parallel", False):
         logging.info(f"Running with {cfg.get('num_workers',4)} parallel workers.")
         with ThreadPoolExecutor(max_workers=cfg.get("num_workers", 4)) as exe:
