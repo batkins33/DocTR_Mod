@@ -928,6 +928,37 @@ def main():
     num_duplicate_ticket_pages = len(duplicate_ticket_pages)
     num_no_ocr_pages = len(all_no_ocr_pages)
 
+    # --- Categorize ticket validity per page ---
+    page_ticket_status = {}
+    for row in all_results:
+        page_key = (row[0], row[5])  # (file_name, page)
+        ticket_num = row[11]
+        if not ticket_num:
+            continue
+        status = row[19]
+        page_ticket_status.setdefault(page_key, set()).add(status)
+
+    pages_duplicate = set((rec["file_name"], rec["page"]) for rec in duplicate_ticket_pages)
+    pages_with_no_ticket = no_ticket_pages_set
+
+    valid_ticket_pages = set()
+    invalid_ticket_pages = set()
+    unchecked_ticket_pages = set()
+
+    for page_key, statuses in page_ticket_status.items():
+        if page_key in pages_duplicate or page_key in pages_with_no_ticket:
+            continue
+        if "valid" in statuses:
+            valid_ticket_pages.add(page_key)
+        elif "invalid" in statuses:
+            invalid_ticket_pages.add(page_key)
+        else:
+            unchecked_ticket_pages.add(page_key)
+
+    num_valid_ticket_pages = len(valid_ticket_pages)
+    num_invalid_ticket_pages = len(invalid_ticket_pages)
+    num_invalid_pages = len(unchecked_ticket_pages)
+
     # --- Write combined OCR data dump ---
     os.makedirs(os.path.dirname(cfg["output_csv"]), exist_ok=True)
     output_path = cfg["output_csv"]
@@ -1093,8 +1124,11 @@ def main():
         writer.writerow(["Unique tickets", len(unique_tickets)])
         writer.writerow(["Valid manifest numbers", valid_manifest_numbers])
         writer.writerow(["Manifest numbers for review", review_manifest_numbers])
+        writer.writerow(["Valid ticket pages", num_valid_ticket_pages])
+        writer.writerow(["Invalid ticket pages", num_invalid_ticket_pages])
         writer.writerow(["Pages with no ticket number", num_no_ticket_pages])
         writer.writerow(["Duplicate ticket pages", num_duplicate_ticket_pages])
+        writer.writerow(["Invalid pages", num_invalid_pages])
         writer.writerow(["Pages with no OCR text", num_no_ocr_pages])
     logging.info(f"Wrote summary report to {summary_csv}")
 
@@ -1152,8 +1186,11 @@ def main():
     print(f"Unique tickets:      {len(unique_tickets)}")
     print(f"Valid manifests:     {valid_manifest_numbers}")
     print(f"Manifests for review:{review_manifest_numbers}")
+    print(f"Valid ticket pages:  {num_valid_ticket_pages}")
+    print(f"Invalid ticket pages:{num_invalid_ticket_pages}")
     print(f"No-ticket pages:      {num_no_ticket_pages}")
     print(f"Duplicate pages:     {num_duplicate_ticket_pages}")
+    print(f"Invalid pages:       {num_invalid_pages}")
     print(f"No-OCR pages:        {num_no_ocr_pages}")
     print(
         f"All done! Results saved to {cfg['output_csv']} and {cfg['ticket_numbers_csv']}"
