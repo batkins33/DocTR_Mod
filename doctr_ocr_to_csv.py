@@ -558,7 +558,7 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
 
     page_args = []
     for idx, pil_img in enumerate(
-        tqdm(all_images, desc="Preparing pages", unit="page")
+        tqdm(images_iter, desc="Preparing pages", unit="page")
     ):
         page_num = idx + 1
         if page_num in skip_pages:
