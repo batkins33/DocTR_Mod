@@ -548,7 +548,14 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     t4 = time.time()
     print("    - Loading Results...")
     all_images = list(
-        extract_images_generator(cfg["input_pdf"], poppler_path=cfg.get("poppler_path"))
+        tqdm(
+            extract_images_generator(
+                cfg["input_pdf"], poppler_path=cfg.get("poppler_path")
+            ),
+            total=total_pages,
+            desc="Loading pages",
+            unit="page",
+        )
     )
     timing_steps["load_images_sec"] = time.time() - t4
 
