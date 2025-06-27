@@ -88,3 +88,11 @@ profile: false
 - `tesseract` (default): use Tesseract's OSD to correct orientation
 - `doctr`: use Doctr's angle prediction model
 - `none`: skip orientation checks
+
+### Output Files
+
+- `combined_results.csv` – raw OCR results for every page
+- `ticket_numbers.csv` – unique tickets
+- `ticket_number_exceptions.csv` – pages with no ticket number
+- `duplicate_ticket_exceptions.csv` – duplicate tickets and pages with no OCR text
+
