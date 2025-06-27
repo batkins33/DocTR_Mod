@@ -1,10 +1,20 @@
-__pycache__/ 
-*.pyc 
-*.log 
-venv/ 
-.env 
-.idea/ 
-.vscode/
-/output/
-/.run/
+*.log
+.env
 /.ruff_cache/
+
+# Ignore output directories and logs
+/output/
+/output/images/
+/output/logs/
+/output/ocr/
+/output/ticket_number/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore run configs
+.run/
+
+
+/working_files/examples/

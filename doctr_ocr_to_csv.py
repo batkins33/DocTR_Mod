@@ -65,9 +65,6 @@ def load_extraction_rules(path="extraction_rules.yaml"):
         return yaml.safe_load(f)
 
 
-def parse_roi(roi_cfg):
-    return ((roi_cfg["x0"], roi_cfg["y0"]), (roi_cfg["x1"], roi_cfg["y1"]))
-
 
 def load_config(path="config.yaml"):
     with open(path, "r", encoding="utf-8") as f:
@@ -173,22 +170,36 @@ def extract_images_generator(filepath, poppler_path=None):
 
 
 # --- Orientation Correction ---
-def correct_image_orientation(pil_img, page_num=None):
+def correct_image_orientation(pil_img, page_num=None, method="tesseract"):
+    """Rotate a PIL image based on the chosen orientation method."""
+    if method == "none":
+        return pil_img
+
     try:
-        osd = pytesseract.image_to_osd(pil_img)
-        rotation_match = re.search(r"Rotate: (\d+)", osd)
-        if rotation_match:
-            rotation = int(rotation_match.group(1))
-            logging.info(f"Page {page_num}: OSD rotation = {rotation} degrees")
-            if rotation == 90:
-                return pil_img.rotate(-90, expand=True)
-            elif rotation == 180:
-                return pil_img.rotate(180, expand=True)
-            elif rotation == 270:
-                return pil_img.rotate(-270, expand=True)
+        if method == "doctr":
+            if correct_image_orientation.angle_model is None:
+                from doctr.models import angle_predictor
+
+                correct_image_orientation.angle_model = angle_predictor(
+                    pretrained=True
+                )
+            angle = correct_image_orientation.angle_model([pil_img])[0]
+            rotation = int(round(angle / 90.0)) * 90 % 360
+        else:  # tesseract
+            osd = pytesseract.image_to_osd(pil_img)
+            rotation_match = re.search(r"Rotate: (\d+)", osd)
+            rotation = int(rotation_match.group(1)) if rotation_match else 0
+
+        logging.info(f"Page {page_num}: rotation = {rotation} degrees")
+        if rotation in {90, 180, 270}:
+            return pil_img.rotate(-rotation, expand=True)
     except Exception as e:
         logging.warning(f"Orientation error (page {page_num}): {e}")
+
     return pil_img
+
+
+correct_image_orientation.angle_model = None
 
 
 # --- Ticket Extraction ---
@@ -231,9 +242,6 @@ def normalize_ticket_number(raw):
     return raw
 
 
-def is_valid_manifest_number(num):
-    return bool(re.fullmatch(r"14\d{6}", num or ""))
-
 
 def get_manifest_validation_status(manifest_number):
     if not manifest_number:
@@ -245,11 +253,6 @@ def get_manifest_validation_status(manifest_number):
     else:
         return "invalid"
 
-
-def is_valid_ticket_number(ticket_number, validation_regex):
-    if not ticket_number or not validation_regex:
-        return False
-    return bool(re.fullmatch(validation_regex, ticket_number))
 
 
 def get_ticket_validation_status(ticket_number, validation_regex):
@@ -294,20 +297,13 @@ def extract_field(result_page, field_rules, pil_img=None, cfg=None):
         labels = field_rules.get("label", "")
         if isinstance(labels, str):
             # split comma-separated strings into list, strip whitespace
-            labels = [label_term.strip().lower() for label_term in labels.split(",") if label_term.strip()]
+            labels = [l.strip().lower() for l in labels.split(",") if l.strip()]
         elif isinstance(labels, list):
-            labels = [label_term.lower() for label_term in labels]
+            labels = [l.lower() for l in labels]
         else:
             labels = []
 
         # **Filter out label if provided**
-        labels = field_rules.get("label", "")
-        if isinstance(labels, str):
-            labels = [label_term.strip().lower() for label_term in labels.split(",") if label_term.strip()]
-        elif isinstance(labels, list):
-            labels = [label_term.lower() for label_term in labels]
-        else:
-            labels = []
         if labels:
             candidates = [
                 c for c in candidates if not any(lbl in c.lower() for lbl in labels)
@@ -381,8 +377,9 @@ def process_page(args):
     t0 = time.time()
 
     # Orientation
-    if cfg.get("correct_orientation", True):
-        pil_img = correct_image_orientation(pil_img, page_num=page_num)
+    orientation_method = cfg.get("orientation_check", "tesseract")
+    if orientation_method != "none":
+        pil_img = correct_image_orientation(pil_img, page_num=page_num, method=orientation_method)
         page_image_hash = get_image_hash(pil_img)
     timings["orientation"] = time.time() - t0 if cfg.get("profile", False) else None
 
@@ -547,27 +544,30 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     results = []
     timings_total = []
     processed_pages = 0
+    no_ocr_pages = []
     timing_steps["init_results_sec"] = time.time() - t3
 
-    # STEP: Loading Results / Images
+    # STEP: Loading Images Generator
     t4 = time.time()
     print("    - Loading Results...")
-    all_images = list(
-        extract_images_generator(cfg["input_pdf"], poppler_path=cfg.get("poppler_path"))
+    images_iter = extract_images_generator(
+        cfg["input_pdf"], poppler_path=cfg.get("poppler_path")
     )
     timing_steps["load_images_sec"] = time.time() - t4
 
-    # STEP: Rotating Pages & Building page_args
+    # STEP: Rotating Pages & Processing
     t5 = time.time()
     print("    - Rotating Pages...")
+
     page_args = []
     for idx, pil_img in enumerate(tqdm(all_images, desc="Preparing pages", unit="page")):
         page_num = idx + 1
         if page_num in skip_pages:
             logging.info(f"Skipping page {page_num} (preflight)")
             continue
-        if cfg.get("correct_orientation", True):
-            pil_img = correct_image_orientation(pil_img, page_num)
+        orientation_method = cfg.get("orientation_check", "tesseract")
+        if orientation_method != "none":
+            pil_img = correct_image_orientation(pil_img, page_num, method=orientation_method)
         if corrected_images is not None:
             corrected_images.append(pil_img.convert("RGB"))
         page_args.append((idx, pil_img, cfg, file_hash, identifier, extraction_rules))
@@ -579,15 +579,29 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     if cfg.get("parallel", False):
         logging.info(f"Running with {cfg.get('num_workers',4)} parallel workers.")
         with ThreadPoolExecutor(max_workers=cfg.get("num_workers", 4)) as exe:
-            futures = {exe.submit(process_page, arg): arg for arg in page_args}
+            futures = {}
+            for idx, pil_img in enumerate(
+                tqdm(images_iter, desc="Preparing pages", unit="page", total=total_pages)
+            ):
+                page_num = idx + 1
+                if page_num in skip_pages:
+                    logging.info(f"Skipping page {page_num} (preflight)")
+                    continue
+                if cfg.get("correct_orientation", True):
+                    pil_img = correct_image_orientation(pil_img, page_num)
+                if corrected_images is not None:
+                    corrected_images.append(pil_img.convert("RGB"))
+                arg = (idx, pil_img, cfg, file_hash, identifier, extraction_rules)
+                futures[exe.submit(process_page, arg)] = (idx, pil_img)
+            timing_steps["rotate_pages_sec"] = time.time() - t5
+
             for fut in tqdm(
                 as_completed(futures),
-                total=total_to_process,
+                total=len(futures),
                 desc="OCR pages",
                 unit="page",
             ):
-                arg = futures[fut]
-                page_idx, pil_img = arg[0], arg[1]
+                page_idx, pil_img = futures[fut]
                 page_num = page_idx + 1
 
                 try:
@@ -610,41 +624,76 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
                         }
                     )
                     continue
-
                 # on success
+                if not rows:
+                    no_ocr_pages.append(
+                        {
+                            "file_name": cfg.get("file_name", os.path.basename(cfg["input_pdf"])),
+                            "file_path": cfg["input_pdf"],
+                            "page": page_num,
+                            "vendor_name": "",
+                            "ticket_number": "",
+                            "roi_image": build_roi_image_path(
+                                cfg["input_pdf"],
+                                page_num,
+                                cfg.get("output_images_dir", "./output/images"),
+                                cfg["output_csv"],
+                            ),
+                        }
+                    )
                 processed_pages += 1
                 results.extend(rows)
                 timings_total.append(timings)
                 if corrected_images is not None and corrected_img is not None:
                     corrected_images.append(corrected_img)
-
     else:
         logging.info("Running in serial mode.")
-        for arg in tqdm(
-            page_args, total=total_to_process, desc="OCR pages", unit="page"
-        ):
-            page_idx, pil_img = arg[0], arg[1]
-            page_num = page_idx + 1
+        with tqdm(total=total_to_process, desc="OCR pages", unit="page") as pbar:
+            for idx, pil_img in enumerate(images_iter):
+                page_num = idx + 1
+                if page_num in skip_pages:
+                    logging.info(f"Skipping page {page_num} (preflight)")
+                    continue
+                if cfg.get("correct_orientation", True):
+                    pil_img = correct_image_orientation(pil_img, page_num)
+                if corrected_images is not None:
+                    corrected_images.append(pil_img.convert("RGB"))
+                arg = (idx, pil_img, cfg, file_hash, identifier, extraction_rules)
+                try:
+                    rows, timings, corrected_img = process_page(arg)
+                except Exception as e:
+                    err_dir = cfg.get("exceptions_dir", "./output/ocr/exceptions")
+                    os.makedirs(err_dir, exist_ok=True)
+                    fn = os.path.splitext(os.path.basename(cfg["input_pdf"]))[0]
+                    err_path = os.path.join(err_dir, f"{fn}_page{page_num:03d}_runtime.png")
+                    pil_img.save(err_path)
+                    logging.warning(f"Page {page_num} ERROR: {e!r} → {err_path}")
+                    exceptions.append(
+                        {
+                            "file": cfg["input_pdf"],
+                            "page": page_num,
+                            "error": str(e),
+                            "extract": err_path,
+                        }
+                    )
+                    continue
 
-            try:
-                rows, timings, corrected_img = process_page(arg)
-            except Exception as e:
-                err_dir = cfg.get("exceptions_dir", "./output/ocr/exceptions")
-                os.makedirs(err_dir, exist_ok=True)
-                fn = os.path.splitext(os.path.basename(cfg["input_pdf"]))[0]
-                err_path = os.path.join(err_dir, f"{fn}_page{page_num:03d}_runtime.png")
-                pil_img.save(err_path)
-                logging.warning(f"Page {page_num} ERROR: {e!r} → {err_path}")
-                exceptions.append(
+            if not rows:
+                no_ocr_pages.append(
                     {
-                        "file": cfg["input_pdf"],
+                        "file_name": cfg.get("file_name", os.path.basename(cfg["input_pdf"])),
+                        "file_path": cfg["input_pdf"],
                         "page": page_num,
-                        "error": str(e),
-                        "extract": err_path,
+                        "vendor_name": "",
+                        "ticket_number": "",
+                        "roi_image": build_roi_image_path(
+                            cfg["input_pdf"],
+                            page_num,
+                            cfg.get("output_images_dir", "./output/images"),
+                            cfg["output_csv"],
+                        ),
                     }
                 )
-                continue
-
             processed_pages += 1
             results.extend(rows)
             timings_total.append(timings)
@@ -663,6 +712,7 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
             total_pages,
             exceptions,
             timing_steps,
+            no_ocr_pages,
         )
 
     else:
@@ -701,6 +751,7 @@ def main():
     batch_mode = cfg.get("batch_mode", False)
     all_results = []
     all_corrected_images = []
+    all_no_ocr_pages = []
     sum_processed_pages = 0
     sum_total_pages = 0
 
@@ -737,10 +788,16 @@ def main():
         file_cfg["file_name"] = os.path.basename(pdf_file)
         file_cfg["file_path"] = pdf_file
 
-        results, corrected_images, proc_pages, tot_pages, excs, timing_steps = (
-            process_pdf_to_csv(
-                file_cfg, vendor_rules, extraction_rules, return_rows=True
-            )
+        (
+            results,
+            corrected_images,
+            proc_pages,
+            tot_pages,
+            excs,
+            timing_steps,
+            no_ocr,
+        ) = process_pdf_to_csv(
+            file_cfg, vendor_rules, extraction_rules, return_rows=True
         )
 
         # Capture per-file timing and performance stats
@@ -760,6 +817,8 @@ def main():
         all_results.extend(results)
         if corrected_images:
             all_corrected_images.extend(corrected_images)
+        if no_ocr:
+            all_no_ocr_pages.extend(no_ocr)
 
         # accumulate pages stats & exceptions
         sum_processed_pages += proc_pages
@@ -769,7 +828,10 @@ def main():
         print(f"Done: {os.path.basename(pdf_file)}")
 
     # --- Calculate stats before writing summary files ---
+    num_pages = len(set((row[0], row[5]) for row in all_results))  # (file_name, page)
     unique_tickets = {}
+    duplicate_ticket_pages = []
+    seen_duplicate_entries = set()
     for row in all_results:
         vendor_name = row[16]
         ticket_number = row[11]
@@ -791,6 +853,27 @@ def main():
                 row[4],  # page_image_hash
                 row[3],  # file_hash
             )
+        elif ticket_number:
+            dup_key = (row[0], row[5], vendor_name, ticket_number)
+            if dup_key not in seen_duplicate_entries:
+                duplicate_ticket_pages.append(
+                    {
+                        "file_name": row[0],
+                        "file_path": row[1],
+                        "page": row[5],
+                        "vendor_name": vendor_name,
+                        "ticket_number": ticket_number,
+                        "roi_image": build_roi_image_path(
+                            row[1],
+                            row[5],
+                            cfg.get("output_images_dir", "./output/images"),
+                            cfg["output_csv"],
+                            vendor_name,
+                            ticket_number,
+                        ),
+                    }
+                )
+                seen_duplicate_entries.add(dup_key)
 
     # Count valid manifest numbers
     valid_manifests = set()
@@ -842,6 +925,8 @@ def main():
         )
 
     num_no_ticket_pages = len(no_ticket_pages)
+    num_duplicate_ticket_pages = len(duplicate_ticket_pages)
+    num_no_ocr_pages = len(all_no_ocr_pages)
 
     # --- Write combined OCR data dump ---
     os.makedirs(os.path.dirname(cfg["output_csv"]), exist_ok=True)
@@ -935,6 +1020,51 @@ def main():
                 ]
             )
 
+    # --- Write duplicate ticket & no-OCR pages report ---
+    dup_ex_csv = cfg.get(
+        "duplicate_ticket_exceptions_csv",
+        os.path.join(os.path.dirname(roi_ex_csv), "duplicate_ticket_exceptions.csv"),
+    )
+    os.makedirs(os.path.dirname(dup_ex_csv), exist_ok=True)
+    file_exists = os.path.isfile(dup_ex_csv)
+    with open(dup_ex_csv, "a", newline="", encoding="utf-8") as df:
+        w = csv.writer(df)
+        if not file_exists:
+            w.writerow(
+                [
+                    "file_name",
+                    "file_path",
+                    "page",
+                    "vendor_name",
+                    "ticket_number",
+                    "ROI Image Link",
+                ]
+            )
+        for rec in duplicate_ticket_pages:
+            link = f'=HYPERLINK("{rec["roi_image"]}","View ROI")'
+            w.writerow(
+                [
+                    rec["file_name"],
+                    rec["file_path"],
+                    rec["page"],
+                    rec["vendor_name"],
+                    rec["ticket_number"],
+                    link,
+                ]
+            )
+        for rec in all_no_ocr_pages:
+            link = f'=HYPERLINK("{rec["roi_image"]}","View ROI")'
+            w.writerow(
+                [
+                    rec["file_name"],
+                    rec["file_path"],
+                    rec["page"],
+                    rec.get("vendor_name", ""),
+                    rec.get("ticket_number", ""),
+                    link,
+                ]
+            )
+
     # --- Write exception report ONLY if exceptions exist ---
     if all_exceptions:
         os.makedirs(os.path.dirname(exceptions_csv), exist_ok=True)
@@ -964,6 +1094,8 @@ def main():
         writer.writerow(["Valid manifest numbers", valid_manifest_numbers])
         writer.writerow(["Manifest numbers for review", review_manifest_numbers])
         writer.writerow(["Pages with no ticket number", num_no_ticket_pages])
+        writer.writerow(["Duplicate ticket pages", num_duplicate_ticket_pages])
+        writer.writerow(["Pages with no OCR text", num_no_ocr_pages])
     logging.info(f"Wrote summary report to {summary_csv}")
 
     # --- Save corrected PDF, only after all pages processed ---
@@ -1021,6 +1153,8 @@ def main():
     print(f"Valid manifests:     {valid_manifest_numbers}")
     print(f"Manifests for review:{review_manifest_numbers}")
     print(f"No-ticket pages:      {num_no_ticket_pages}")
+    print(f"Duplicate pages:     {num_duplicate_ticket_pages}")
+    print(f"No-OCR pages:        {num_no_ocr_pages}")
     print(
         f"All done! Results saved to {cfg['output_csv']} and {cfg['ticket_numbers_csv']}"
     )
