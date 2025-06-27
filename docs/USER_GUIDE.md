@@ -94,5 +94,5 @@ profile: false
 - `combined_results.csv` – raw OCR results for every page
 - `ticket_numbers.csv` – unique tickets
 - `ticket_number_exceptions.csv` – pages with no ticket number
-- `duplicate_ticket_exceptions.csv` – duplicate tickets and pages with no OCR text
+- `duplicate_ticket_exceptions.csv` – pages where the same vendor and ticket number combination appears more than once ("duplicate ticket pages") and any pages that produced no OCR text
 
