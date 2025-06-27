@@ -279,7 +279,6 @@ def extract_field(result_page, field_rules, pil_img=None, cfg=None):
                 int(roi[2] * width),
                 int(roi[3] * height),
             ]
-            roi_box = pil_img.crop((x0, y0, x1, y1))
 
         candidates = []
         for block in result_page.blocks:
@@ -305,13 +304,6 @@ def extract_field(result_page, field_rules, pil_img=None, cfg=None):
             labels = []
 
         # **Filter out label if provided**
-        labels = field_rules.get("label", "")
-        if isinstance(labels, str):
-            labels = [l.strip().lower() for l in labels.split(",") if l.strip()]
-        elif isinstance(labels, list):
-            labels = [l.lower() for l in labels]
-        else:
-            labels = []
         if labels:
             candidates = [
                 c for c in candidates if not any(lbl in c.lower() for lbl in labels)
