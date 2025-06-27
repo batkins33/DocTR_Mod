@@ -63,7 +63,7 @@
 ### Output & Stats
 
 - Outputs all data as CSV, including ROI images if requested
-- Deduplicates tickets by (vendor, ticket_number)
+- Deduplicates tickets by vendor and ticket number to flag pages that reuse the same ticket across the dataset
 - Stats: total files, pages, valid/review/invalid manifests, missing tickets
 
 ---

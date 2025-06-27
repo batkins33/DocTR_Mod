@@ -31,8 +31,7 @@ The pipeline converts each page to images, runs Doctr OCR, applies regex/ROI
 rules to extract fields and writes combined and deduplicated CSV reports under
 `output/`. It also creates exception CSVs:
 `ticket_number_exceptions.csv` for pages with no ticket number and
-`duplicate_ticket_exceptions.csv` for duplicate tickets and pages that produced
-no OCR text.
+`duplicate_ticket_exceptions.csv` for pages where the same vendor and ticket number combination occurs more than once and for pages that produced no OCR text.
 
 ## Documentation
 
