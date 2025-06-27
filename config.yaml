@@ -9,10 +9,10 @@ output_csv: ./output/logs/ocr/combined_results.csv
 ticket_numbers_csv: ./output/ticket_number/combined_ticket_numbers.csv
 
 # Pages that had *no* ticket numbers
-ticket_number_exceptions_csv: ./output/ticket_number/ticket_number_exceptions.csv
+ticket_number_exceptions_csv: ./output/logs/ticket_number/ticket_number_exceptions.csv
 
 # Summary stats
-summary_report_dir: ./output/logs  # directory only, not the full filename
+summary_report_dir: ./output/logs/summary  # directory only, not the full filename
 
 vendor_keywords_csv: ./ocr_keywords.csv
 extraction_rules_yaml: ./extraction_rules.yaml

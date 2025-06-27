@@ -1,7 +1,0 @@
-file,pages,tickets_found,exceptions,duration_sec,count_pages_sec,preflight_sec,load_model_sec,init_results_sec,load_images_sec,rotate_pages_sec
-24-105_2025-05-31_class2_beck_WM_86.pdf,86,3491,0,161.67,0.07,0.0,1.56,0.0,9.66,62.79
-24-105_2025-06-21_Class2_Beck_WM_28.pdf,28,1178,0,53.22,0.04,0.0,1.4,0.0,2.75,21.19
-24-105_2025-06-21_Class2_Podium_WM_379.pdf,379,15433,0,812.72,0.08,0.0,1.5,0.0,121.14,297.18
-24-105_2025-06-20_Class2_Beck_WM_36.pdf,36,1236,0,65.35,0.04,0.0,1.51,0.0,3.18,27.17
-24-105_2025-06-20_Class2_Podium_WM_330.pdf,330,13084,0,670.55,0.05,0.0,1.56,0.0,84.24,254.99
-24-105_2025-06-24_Class2_NTX_WM_17.pdf,17,648,0,33.26,0.72,0.0,1.82,0.0,1.65,14.47
