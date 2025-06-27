@@ -547,8 +547,8 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     # STEP: Loading Images Generator
     t4 = time.time()
     print("    - Loading Results...")
-    images_iter = extract_images_generator(
-        cfg["input_pdf"], poppler_path=cfg.get("poppler_path")
+    all_images = list(
+        extract_images_generator(cfg["input_pdf"], poppler_path=cfg.get("poppler_path"))
     )
     timing_steps["load_images_sec"] = time.time() - t4
 
@@ -557,9 +557,12 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     print("    - Rotating Pages...")
 
     page_args = []
-    for idx, pil_img in enumerate(
+
+    for idx, pil_img in enumerate(tqdm(all_images, desc="Preparing pages", unit="page")):
+
         tqdm(images_iter, desc="Preparing pages", unit="page")
     ):
+
         page_num = idx + 1
         if page_num in skip_pages:
             logging.info(f"Skipping page {page_num} (preflight)")
@@ -580,22 +583,7 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     if cfg.get("parallel", False):
         logging.info(f"Running with {cfg.get('num_workers',4)} parallel workers.")
         with ThreadPoolExecutor(max_workers=cfg.get("num_workers", 4)) as exe:
-            futures = {}
-            for idx, pil_img in enumerate(
-                tqdm(
-                    images_iter, desc="Preparing pages", unit="page", total=total_pages
-                )
-            ):
-                page_num = idx + 1
-                if page_num in skip_pages:
-                    logging.info(f"Skipping page {page_num} (preflight)")
-                    continue
-                if cfg.get("correct_orientation", True):
-                    pil_img = correct_image_orientation(pil_img, page_num)
-                if corrected_images is not None:
-                    corrected_images.append(pil_img.convert("RGB"))
-                arg = (idx, pil_img, cfg, file_hash, identifier, extraction_rules)
-                futures[exe.submit(process_page, arg)] = (idx, pil_img)
+            futures = {exe.submit(process_page, arg): arg for arg in page_args}
             timing_steps["rotate_pages_sec"] = time.time() - t5
 
             for fut in tqdm(
@@ -604,7 +592,8 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
                 desc="OCR pages",
                 unit="page",
             ):
-                page_idx, pil_img = futures[fut]
+                arg = futures[fut]
+                page_idx, pil_img = arg[0], arg[1]
                 page_num = page_idx + 1
 
                 try:
@@ -654,7 +643,8 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     else:
         logging.info("Running in serial mode.")
         with tqdm(total=total_to_process, desc="OCR pages", unit="page") as pbar:
-            for idx, pil_img in enumerate(images_iter):
+            for arg in page_args:
+                idx, pil_img, *_ = arg
                 page_num = idx + 1
                 if page_num in skip_pages:
                     logging.info(f"Skipping page {page_num} (preflight)")
@@ -663,7 +653,6 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
                     pil_img = correct_image_orientation(pil_img, page_num)
                 if corrected_images is not None:
                     corrected_images.append(pil_img.convert("RGB"))
-                arg = (idx, pil_img, cfg, file_hash, identifier, extraction_rules)
                 try:
                     rows, timings, corrected_img = process_page(arg)
                 except Exception as e:
@@ -703,11 +692,11 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
                         ),
                     }
                 )
-            processed_pages += 1
-            results.extend(rows)
-            timings_total.append(timings)
-            if corrected_images is not None and corrected_img is not None:
-                corrected_images.append(corrected_img)
+                processed_pages += 1
+                results.extend(rows)
+                timings_total.append(timings)
+                if corrected_images is not None and corrected_img is not None:
+                    corrected_images.append(corrected_img)
 
     # ─── Return or Legacy CSV branch ─────────────────────────────────────────
     if return_rows:
