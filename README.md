@@ -28,8 +28,10 @@ manifest numbers and other key fields.
    You will be prompted to choose a file or directory if not provided in `config.yaml`.
 
 The pipeline converts each page to images, runs Doctr OCR, applies regex/ROI
-rules to extract fields and writes combined and deduplicated CSV reports under
-`output/`. It also creates exception CSVs:
+rules to extract fields and writes CSV reports under `output/`.
+`combined_ticket_numbers.csv` now contains one row for each processed page with
+a `duplicate_ticket` flag so missing or repeated numbers are easy to spot. It
+also creates exception CSVs:
 `ticket_number_exceptions.csv` for pages with no ticket number and
 `duplicate_ticket_exceptions.csv` for pages where the same vendor and ticket number combination occurs more than once and for pages that produced no OCR text.
 
