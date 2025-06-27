@@ -5,19 +5,22 @@ It uses the **Doctr** OCR engine alongside YAML/CSV rules to detect vendors, tic
 manifest numbers and other key fields.
 
 ## Prerequisites
+
 - **Python** 3.8 or newer (3.10+ recommended)
-- **System tools**: [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) and [Poppler](http://blog.alivate.com.au/poppler-windows/) for PDF rendering
+- **System tools**: [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
+  and [Poppler](http://blog.alivate.com.au/poppler-windows/) for PDF rendering
 - Install the required Python packages:
   ```bash
   pip install -r requirements.txt
   ```
 
 ## Basic Usage
+
 1. Place your PDFs in a directory or specify a single file.
 2. Create these configuration files in the project folder:
-   - `ocr_keywords.csv` – vendor keywords
-   - `extraction_rules.yaml` – field extraction rules
-   - `config.yaml` – runtime options (see `docs/sample_config.yaml` for an example)
+    - `ocr_keywords.csv` – vendor keywords
+    - `extraction_rules.yaml` – field extraction rules
+    - `config.yaml` – runtime options (see `docs/sample_config.yaml` for an example)
 3. Run the main script:
    ```bash
    python doctr_ocr_to_csv.py
@@ -32,6 +35,7 @@ rules to extract fields and writes combined and deduplicated CSV reports under
 no OCR text.
 
 ## Documentation
+
 - [User Guide](docs/USER_GUIDE.md) – step-by-step instructions and configuration examples
 - [Developer Guide](docs/DEVELOPER_GUIDE.md) – architecture and extension points
 
