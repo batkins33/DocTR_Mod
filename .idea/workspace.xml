@@ -45,22 +45,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "codex/remove-unused-variables-and-rename-short-variables",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "U:/Dev/projects/DocTR_Mod",
-    "run.code.analysis.last.selected.profile": "pProject Default",
-    "settings.editor.selected.configurable": "com.jetbrains.python.black.configuration.BlackFormatterConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;U:/Dev/projects/DocTR_Mod/doctr_ocr_to_csv.py&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;CodeWithMe&quot;
   }
-}]]></component>
+}</component>
   <component name="PyConsoleOptionsProvider">
     <option name="myPythonConsoleState">
-      <console-settings module-name="DocTR" is-module-sdk="true">
+      <console-settings module-name="DocTR_Mod" is-module-sdk="true" working-directory="$PROJECT_DIR$">
         <option name="myUseModuleSdk" value="true" />
-        <option name="myModuleName" value="DocTR" />
+        <option name="myModuleName" value="DocTR_Mod" />
+        <option name="myWorkingDirectory" value="$PROJECT_DIR$" />
       </console-settings>
     </option>
   </component>
@@ -78,6 +79,7 @@
   </component>
   <component name="RunManager" selected="Python.doctr_ocr_to_csv">
     <configuration name="doctr_ocr_to_csv" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <output_file path="U:\Dev\projects\DocTR_Mod\output\logs\console_log" is_save="true" />
       <module name="DocTR" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -107,11 +109,34 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="doctr_env" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/input_picker.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="preflight" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="DocTR_Mod" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="doctr_env" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/preflight.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -183,6 +208,14 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Python.preflight" />
+      <item itemvalue="Python.doctr_ocr_to_csv" />
+      <item itemvalue="Python.input_picker" />
+      <item itemvalue="Python.reg_test" />
+      <item itemvalue="Python.t2" />
+      <item itemvalue="Python.tree_maker" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.doctr_ocr_to_csv" />
@@ -253,12 +286,12 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/doctr_ocr_to_csv.py</url>
-          <line>1167</line>
+          <line>1176</line>
           <option name="timeStamp" value="11" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/doctr_ocr_to_csv.py</url>
-          <line>164</line>
+          <line>163</line>
           <option name="timeStamp" value="14" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -268,32 +301,32 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/doctr_ocr_to_csv.py</url>
-          <line>87</line>
+          <line>86</line>
           <option name="timeStamp" value="17" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/doctr_ocr_to_csv.py</url>
-          <line>207</line>
+          <line>204</line>
           <option name="timeStamp" value="18" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/doctr_ocr_to_csv.py</url>
-          <line>205</line>
+          <line>202</line>
           <option name="timeStamp" value="19" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/doctr_ocr_to_csv.py</url>
-          <line>244</line>
+          <line>240</line>
           <option name="timeStamp" value="20" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/doctr_ocr_to_csv.py</url>
-          <line>371</line>
+          <line>366</line>
           <option name="timeStamp" value="22" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/doctr_ocr_to_csv.py</url>
-          <line>809</line>
+          <line>818</line>
           <option name="timeStamp" value="23" />
         </line-breakpoint>
       </breakpoints>
