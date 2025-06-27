@@ -1,7 +1,7 @@
 JDandSon:
   ticket_number:
     method: roi
-    roi: [0.658, 0.163, 0.999, 0.281]
+    roi: [ 0.658, 0.163, 0.999, 0.281 ]
     label: "PIT/DUMP TICKET"
     regex: '(?<!№)\b(?:A\s?\d{5,6}|NO\s?\d{5,6}|\d{5,6})\b'     # match 5 or 6 digits, optionally preceded by "A" or "NO"
     validation_regex: '^(A\d{5,6}|\d{5,6})$'      # must start with "A" or be 5 or 6 digits, not preceded by "№"
@@ -30,8 +30,8 @@ JDandSon:
 Portillo:
   ticket_number:
     method: roi
-    roi: [0.309, 0.006, 0.998, 0.192]
-#    roi: [ 0.512, 0.000, 1.000, 0.173 ]
+    roi: [ 0.309, 0.006, 0.998, 0.192 ]
+    #    roi: [ 0.512, 0.000, 1.000, 0.173 ]
     regex: "(?<!№)\\b\\d{6}\\b"
     validation_regex: "^\\d{6}$"
   manifest_number:
@@ -41,7 +41,7 @@ Portillo:
     regex: "\\d{8,}$" # must be at least 8 digits
   material_type:
     method: roi
-    roi: [0.019, 0.648, 0.536, 0.787]
+    roi: [ 0.019, 0.648, 0.536, 0.787 ]
     label: "COMMODITY"
     regex: "[A-Za-z ]+" # match letters and spaces
   truck_number:
@@ -83,18 +83,18 @@ WL_Reid:
 CorpoTechs:
   ticket_number:
     method: roi
-#     roi: [ 0.566, 0.138, 0.995, 0.279 ]
+    #     roi: [ 0.566, 0.138, 0.995, 0.279 ]
     roi: [ 0.641, 0.113, 0.999, 0.281 ]
     label:
       - "office: 469-845-3334"
-#      - "No"
-#      - "N9"
+    #      - "No"
+    #      - "N9"
     regex: '(?<!№)\b\d{4,6}\b'           # match 4–6 digits not preceded by №
     validation_regex: '^\d{4,6}$'        # exactly 4–6 digits only
   manifest_number:
     method: roi
     roi: [ 0.001, 0.020, 0.330, 0.232 ]
-#    roi: [ 0.013, 0.036, 0.304, 0.200 ]
+    #    roi: [ 0.013, 0.036, 0.304, 0.200 ]
     label: "pit ticket#"
     regex: "\\d{8,}$"
   material_type:

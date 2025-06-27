@@ -70,15 +70,15 @@
 
 ## Extending & Customizing
 
-- **Add new vendor:**  
-  - Update `ocr_keywords.csv`
-  - Add extraction logic in `extraction_rules.yaml`
-- **Change or add fields:**  
-  - Add to YAML and (optionally) extend extraction logic for new patterns
-- **Custom validation:**  
-  - Edit `get_manifest_validation_status()` and `get_ticket_validation_status()`
-- **Integrate to DB:**  
-  - Replace or supplement CSV writing logic
+- **Add new vendor:**
+    - Update `ocr_keywords.csv`
+    - Add extraction logic in `extraction_rules.yaml`
+- **Change or add fields:**
+    - Add to YAML and (optionally) extend extraction logic for new patterns
+- **Custom validation:**
+    - Edit `get_manifest_validation_status()` and `get_ticket_validation_status()`
+- **Integrate to DB:**
+    - Replace or supplement CSV writing logic
 
 ---
 

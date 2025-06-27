@@ -65,7 +65,6 @@ def load_extraction_rules(path="extraction_rules.yaml"):
         return yaml.safe_load(f)
 
 
-
 def load_config(path="config.yaml"):
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -180,9 +179,7 @@ def correct_image_orientation(pil_img, page_num=None, method="tesseract"):
             if correct_image_orientation.angle_model is None:
                 from doctr.models import angle_predictor
 
-                correct_image_orientation.angle_model = angle_predictor(
-                    pretrained=True
-                )
+                correct_image_orientation.angle_model = angle_predictor(pretrained=True)
             angle = correct_image_orientation.angle_model([pil_img])[0]
             rotation = int(round(angle / 90.0)) * 90 % 360
         else:  # tesseract
@@ -242,7 +239,6 @@ def normalize_ticket_number(raw):
     return raw
 
 
-
 def get_manifest_validation_status(manifest_number):
     if not manifest_number:
         return "invalid"
@@ -252,7 +248,6 @@ def get_manifest_validation_status(manifest_number):
         return "review"
     else:
         return "invalid"
-
 
 
 def get_ticket_validation_status(ticket_number, validation_regex):
@@ -379,7 +374,9 @@ def process_page(args):
     # Orientation
     orientation_method = cfg.get("orientation_check", "tesseract")
     if orientation_method != "none":
-        pil_img = correct_image_orientation(pil_img, page_num=page_num, method=orientation_method)
+        pil_img = correct_image_orientation(
+            pil_img, page_num=page_num, method=orientation_method
+        )
         page_image_hash = get_image_hash(pil_img)
     timings["orientation"] = time.time() - t0 if cfg.get("profile", False) else None
 
@@ -560,14 +557,18 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     print("    - Rotating Pages...")
 
     page_args = []
-    for idx, pil_img in enumerate(tqdm(all_images, desc="Preparing pages", unit="page")):
+    for idx, pil_img in enumerate(
+        tqdm(all_images, desc="Preparing pages", unit="page")
+    ):
         page_num = idx + 1
         if page_num in skip_pages:
             logging.info(f"Skipping page {page_num} (preflight)")
             continue
         orientation_method = cfg.get("orientation_check", "tesseract")
         if orientation_method != "none":
-            pil_img = correct_image_orientation(pil_img, page_num, method=orientation_method)
+            pil_img = correct_image_orientation(
+                pil_img, page_num, method=orientation_method
+            )
         if corrected_images is not None:
             corrected_images.append(pil_img.convert("RGB"))
         page_args.append((idx, pil_img, cfg, file_hash, identifier, extraction_rules))
@@ -581,7 +582,9 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
         with ThreadPoolExecutor(max_workers=cfg.get("num_workers", 4)) as exe:
             futures = {}
             for idx, pil_img in enumerate(
-                tqdm(images_iter, desc="Preparing pages", unit="page", total=total_pages)
+                tqdm(
+                    images_iter, desc="Preparing pages", unit="page", total=total_pages
+                )
             ):
                 page_num = idx + 1
                 if page_num in skip_pages:
@@ -628,7 +631,9 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
                 if not rows:
                     no_ocr_pages.append(
                         {
-                            "file_name": cfg.get("file_name", os.path.basename(cfg["input_pdf"])),
+                            "file_name": cfg.get(
+                                "file_name", os.path.basename(cfg["input_pdf"])
+                            ),
                             "file_path": cfg["input_pdf"],
                             "page": page_num,
                             "vendor_name": "",
@@ -665,7 +670,9 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
                     err_dir = cfg.get("exceptions_dir", "./output/ocr/exceptions")
                     os.makedirs(err_dir, exist_ok=True)
                     fn = os.path.splitext(os.path.basename(cfg["input_pdf"]))[0]
-                    err_path = os.path.join(err_dir, f"{fn}_page{page_num:03d}_runtime.png")
+                    err_path = os.path.join(
+                        err_dir, f"{fn}_page{page_num:03d}_runtime.png"
+                    )
                     pil_img.save(err_path)
                     logging.warning(f"Page {page_num} ERROR: {e!r} → {err_path}")
                     exceptions.append(
@@ -681,7 +688,9 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
             if not rows:
                 no_ocr_pages.append(
                     {
-                        "file_name": cfg.get("file_name", os.path.basename(cfg["input_pdf"])),
+                        "file_name": cfg.get(
+                            "file_name", os.path.basename(cfg["input_pdf"])
+                        ),
                         "file_path": cfg["input_pdf"],
                         "page": page_num,
                         "vendor_name": "",
