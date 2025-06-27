@@ -1001,10 +1001,61 @@ def main():
     ticket_csv_path = cfg["ticket_numbers_csv"]
     file_exists = os.path.isfile(ticket_csv_path)
 
-    # Sort tickets by file_name (v[8]) and page (v[0]) before writing:
-    sorted_unique_tickets = sorted(
-        unique_tickets.values(), key=lambda v: (v[8], int(v[0]))
-    )
+    # Build per-page ticket records
+    page_records = {}
+    for row in all_results:
+        key = (row[0], row[5])  # (file_name, page)
+        if key not in page_records:
+            page_records[key] = {
+                "page": row[5],
+                "vendor_name": row[16],
+                "ticket_number": row[11] or "",
+                "ticket_valid": row[19],
+                "manifest_number": row[12],
+                "manifest_valid": row[20],
+                "vendor_type": row[17],
+                "matched_term": row[18],
+                "file_name": row[0],
+                "file_path": row[1],
+                "page_image_hash": row[4],
+                "file_hash": row[3],
+            }
+
+    # Include pages that produced no OCR text
+    for rec in all_no_ocr_pages:
+        key = (rec["file_name"], rec["page"])
+        if key not in page_records:
+            page_records[key] = {
+                "page": rec["page"],
+                "vendor_name": rec.get("vendor_name", ""),
+                "ticket_number": "",
+                "ticket_valid": "no ticket",
+                "manifest_number": "",
+                "manifest_valid": "invalid",
+                "vendor_type": "",
+                "matched_term": "",
+                "file_name": rec["file_name"],
+                "file_path": rec["file_path"],
+                "page_image_hash": "",
+                "file_hash": "",
+            }
+
+    # Determine duplicate tickets
+    ticket_groups = {}
+    for key, rec in page_records.items():
+        ticket = rec["ticket_number"]
+        vendor = rec["vendor_name"]
+        if ticket:
+            ticket_groups.setdefault((vendor, ticket), []).append(key)
+
+    duplicate_page_keys = set()
+    for keys in ticket_groups.values():
+        if len(keys) > 1:
+            hashes = {page_records[k]["page_image_hash"] for k in keys}
+            if len(hashes) > 1:
+                duplicate_page_keys.update(keys)
+
+    sorted_keys = sorted(page_records.keys(), key=lambda k: (k[0], int(k[1])))
 
     with open(ticket_csv_path, "a", newline="", encoding="utf-8") as tf:
         w = csv.writer(tf)
@@ -1015,6 +1066,7 @@ def main():
                     "vendor_name",
                     "ticket_number",
                     "ticket_valid",
+                    "duplicate_ticket",
                     "manifest_number",
                     "manifest_valid",
                     "vendor_type",
@@ -1025,8 +1077,28 @@ def main():
                     "file_hash",
                 ]
             )
-        for vals in unique_tickets.values():
-            w.writerow(vals)
+        for key in sorted_keys:
+            rec = page_records[key]
+            ticket_num = rec["ticket_number"]
+            ticket_status = rec["ticket_valid"] if ticket_num else "no ticket"
+            dup_flag = "true" if key in duplicate_page_keys else "false"
+            w.writerow(
+                [
+                    rec["page"],
+                    rec["vendor_name"],
+                    ticket_num,
+                    ticket_status,
+                    dup_flag,
+                    rec["manifest_number"],
+                    rec["manifest_valid"],
+                    rec["vendor_type"],
+                    rec["matched_term"],
+                    rec["file_name"],
+                    rec["file_path"],
+                    rec["page_image_hash"],
+                    rec["file_hash"],
+                ]
+            )
 
     # --- Write ROI exception report for pages with no ticket ---
     roi_ex_csv = cfg["ticket_number_exceptions_csv"]
