@@ -550,45 +550,45 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     processed_pages = 0
     timing_steps["init_results_sec"] = time.time() - t3
 
-    # STEP: Loading Results / Images
+    # STEP: Loading Images Generator
     t4 = time.time()
     print("    - Loading Results...")
-    all_images = list(
-        extract_images_generator(cfg["input_pdf"], poppler_path=cfg.get("poppler_path"))
+    images_iter = extract_images_generator(
+        cfg["input_pdf"], poppler_path=cfg.get("poppler_path")
     )
     timing_steps["load_images_sec"] = time.time() - t4
 
-    # STEP: Rotating Pages & Building page_args
+    # STEP: Rotating Pages & Processing
     t5 = time.time()
     print("    - Rotating Pages...")
-    page_args = []
-    for idx, pil_img in enumerate(tqdm(all_images, desc="Preparing pages", unit="page")):
-        page_num = idx + 1
-        if page_num in skip_pages:
-            logging.info(f"Skipping page {page_num} (preflight)")
-            continue
-        if cfg.get("correct_orientation", True):
-            pil_img = correct_image_orientation(pil_img, page_num)
-        if corrected_images is not None:
-            corrected_images.append(pil_img.convert("RGB"))
-        page_args.append((idx, pil_img, cfg, file_hash, identifier, extraction_rules))
-    timing_steps["rotate_pages_sec"] = time.time() - t5
+    total_to_process = total_pages - len(skip_pages)
 
-    total_to_process = len(page_args)
-
-    # ─── Process Pages (parallel or serial with tqdm) ─────────────────────────
     if cfg.get("parallel", False):
         logging.info(f"Running with {cfg.get('num_workers',4)} parallel workers.")
         with ThreadPoolExecutor(max_workers=cfg.get("num_workers", 4)) as exe:
-            futures = {exe.submit(process_page, arg): arg for arg in page_args}
+            futures = {}
+            for idx, pil_img in enumerate(
+                tqdm(images_iter, desc="Preparing pages", unit="page", total=total_pages)
+            ):
+                page_num = idx + 1
+                if page_num in skip_pages:
+                    logging.info(f"Skipping page {page_num} (preflight)")
+                    continue
+                if cfg.get("correct_orientation", True):
+                    pil_img = correct_image_orientation(pil_img, page_num)
+                if corrected_images is not None:
+                    corrected_images.append(pil_img.convert("RGB"))
+                arg = (idx, pil_img, cfg, file_hash, identifier, extraction_rules)
+                futures[exe.submit(process_page, arg)] = (idx, pil_img)
+            timing_steps["rotate_pages_sec"] = time.time() - t5
+
             for fut in tqdm(
                 as_completed(futures),
-                total=total_to_process,
+                total=len(futures),
                 desc="OCR pages",
                 unit="page",
             ):
-                arg = futures[fut]
-                page_idx, pil_img = arg[0], arg[1]
+                page_idx, pil_img = futures[fut]
                 page_num = page_idx + 1
 
                 try:
@@ -612,45 +612,50 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
                     )
                     continue
 
-                # on success
                 processed_pages += 1
                 results.extend(rows)
                 timings_total.append(timings)
                 if corrected_images is not None and corrected_img is not None:
                     corrected_images.append(corrected_img)
-
     else:
         logging.info("Running in serial mode.")
-        for arg in tqdm(
-            page_args, total=total_to_process, desc="OCR pages", unit="page"
-        ):
-            page_idx, pil_img = arg[0], arg[1]
-            page_num = page_idx + 1
+        with tqdm(total=total_to_process, desc="OCR pages", unit="page") as pbar:
+            for idx, pil_img in enumerate(images_iter):
+                page_num = idx + 1
+                if page_num in skip_pages:
+                    logging.info(f"Skipping page {page_num} (preflight)")
+                    continue
+                if cfg.get("correct_orientation", True):
+                    pil_img = correct_image_orientation(pil_img, page_num)
+                if corrected_images is not None:
+                    corrected_images.append(pil_img.convert("RGB"))
+                arg = (idx, pil_img, cfg, file_hash, identifier, extraction_rules)
+                try:
+                    rows, timings, corrected_img = process_page(arg)
+                except Exception as e:
+                    err_dir = cfg.get("exceptions_dir", "./output/ocr/exceptions")
+                    os.makedirs(err_dir, exist_ok=True)
+                    fn = os.path.splitext(os.path.basename(cfg["input_pdf"]))[0]
+                    err_path = os.path.join(err_dir, f"{fn}_page{page_num:03d}_runtime.png")
+                    pil_img.save(err_path)
+                    logging.warning(f"Page {page_num} ERROR: {e!r} → {err_path}")
+                    exceptions.append(
+                        {
+                            "file": cfg["input_pdf"],
+                            "page": page_num,
+                            "error": str(e),
+                            "extract": err_path,
+                        }
+                    )
+                    continue
 
-            try:
-                rows, timings, corrected_img = process_page(arg)
-            except Exception as e:
-                err_dir = cfg.get("exceptions_dir", "./output/ocr/exceptions")
-                os.makedirs(err_dir, exist_ok=True)
-                fn = os.path.splitext(os.path.basename(cfg["input_pdf"]))[0]
-                err_path = os.path.join(err_dir, f"{fn}_page{page_num:03d}_runtime.png")
-                pil_img.save(err_path)
-                logging.warning(f"Page {page_num} ERROR: {e!r} → {err_path}")
-                exceptions.append(
-                    {
-                        "file": cfg["input_pdf"],
-                        "page": page_num,
-                        "error": str(e),
-                        "extract": err_path,
-                    }
-                )
-                continue
-
-            processed_pages += 1
-            results.extend(rows)
-            timings_total.append(timings)
-            if corrected_images is not None and corrected_img is not None:
-                corrected_images.append(corrected_img)
+                processed_pages += 1
+                results.extend(rows)
+                timings_total.append(timings)
+                if corrected_images is not None and corrected_img is not None:
+                    corrected_images.append(corrected_img)
+                pbar.update(1)
+        timing_steps["rotate_pages_sec"] = time.time() - t5
 
     # ─── Return or Legacy CSV branch ─────────────────────────────────────────
     if return_rows:
