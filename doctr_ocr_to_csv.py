@@ -925,7 +925,6 @@ def main():
         )
 
     num_no_ticket_pages = len(no_ticket_pages)
-    num_duplicate_ticket_pages = len(duplicate_ticket_pages)
     num_no_ocr_pages = len(all_no_ocr_pages)
 
     # --- Categorize ticket validity per page ---
@@ -1054,6 +1053,20 @@ def main():
             hashes = {page_records[k]["page_image_hash"] for k in keys}
             if len(hashes) > 1:
                 duplicate_page_keys.update(keys)
+
+    # Count ticket validation statuses across all pages
+    status_counts = {"valid": 0, "invalid": 0, "no ticket": 0, "not checked": 0}
+    for rec in page_records.values():
+        status = rec["ticket_valid"]
+        if not rec["ticket_number"]:
+            status = "no ticket"
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    num_valid_ticket_numbers = status_counts.get("valid", 0)
+    num_invalid_ticket_numbers = status_counts.get("invalid", 0)
+    num_no_ticket_numbers = status_counts.get("no ticket", 0)
+    num_not_checked_ticket_numbers = status_counts.get("not checked", 0)
+    num_duplicate_ticket_pages = len(duplicate_page_keys)
 
     sorted_keys = sorted(page_records.keys(), key=lambda k: (k[0], int(k[1])))
 
@@ -1196,11 +1209,11 @@ def main():
         writer.writerow(["Unique tickets", len(unique_tickets)])
         writer.writerow(["Valid manifest numbers", valid_manifest_numbers])
         writer.writerow(["Manifest numbers for review", review_manifest_numbers])
-        writer.writerow(["Valid ticket pages", num_valid_ticket_pages])
-        writer.writerow(["Invalid ticket pages", num_invalid_ticket_pages])
-        writer.writerow(["Pages with no ticket number", num_no_ticket_pages])
-        writer.writerow(["Duplicate ticket pages", num_duplicate_ticket_pages])
-        writer.writerow(["Invalid pages", num_invalid_pages])
+        writer.writerow(["Valid ticket numbers", num_valid_ticket_numbers])
+        writer.writerow(["Invalid ticket numbers", num_invalid_ticket_numbers])
+        writer.writerow(["No-ticket numbers", num_no_ticket_numbers])
+        writer.writerow(["Duplicate ticket numbers", num_duplicate_ticket_pages])
+        writer.writerow(["Not-checked ticket numbers", num_not_checked_ticket_numbers])
         writer.writerow(["Pages with no OCR text", num_no_ocr_pages])
     logging.info(f"Wrote summary report to {summary_csv}")
 
@@ -1258,11 +1271,11 @@ def main():
     print(f"Unique tickets:      {len(unique_tickets)}")
     print(f"Valid manifests:     {valid_manifest_numbers}")
     print(f"Manifests for review:{review_manifest_numbers}")
-    print(f"Valid ticket pages:  {num_valid_ticket_pages}")
-    print(f"Invalid ticket pages:{num_invalid_ticket_pages}")
-    print(f"No-ticket pages:      {num_no_ticket_pages}")
-    print(f"Duplicate pages:     {num_duplicate_ticket_pages}")
-    print(f"Invalid pages:       {num_invalid_pages}")
+    print(f"Valid ticket numbers:  {num_valid_ticket_numbers}")
+    print(f"Invalid ticket numbers:{num_invalid_ticket_numbers}")
+    print(f"No-ticket numbers:     {num_no_ticket_numbers}")
+    print(f"Duplicate ticket numbers: {num_duplicate_ticket_pages}")
+    print(f"Not-checked ticket numbers:{num_not_checked_ticket_numbers}")
     print(f"No-OCR pages:        {num_no_ocr_pages}")
     print(
         f"All done! Results saved to {cfg['output_csv']} and {cfg['ticket_numbers_csv']}"
