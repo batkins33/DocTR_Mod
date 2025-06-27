@@ -65,9 +65,6 @@ def load_extraction_rules(path="extraction_rules.yaml"):
         return yaml.safe_load(f)
 
 
-def parse_roi(roi_cfg):
-    return ((roi_cfg["x0"], roi_cfg["y0"]), (roi_cfg["x1"], roi_cfg["y1"]))
-
 
 def load_config(path="config.yaml"):
     with open(path, "r", encoding="utf-8") as f:
@@ -231,9 +228,6 @@ def normalize_ticket_number(raw):
     return raw
 
 
-def is_valid_manifest_number(num):
-    return bool(re.fullmatch(r"14\d{6}", num or ""))
-
 
 def get_manifest_validation_status(manifest_number):
     if not manifest_number:
@@ -245,11 +239,6 @@ def get_manifest_validation_status(manifest_number):
     else:
         return "invalid"
 
-
-def is_valid_ticket_number(ticket_number, validation_regex):
-    if not ticket_number or not validation_regex:
-        return False
-    return bool(re.fullmatch(validation_regex, ticket_number))
 
 
 def get_ticket_validation_status(ticket_number, validation_regex):
