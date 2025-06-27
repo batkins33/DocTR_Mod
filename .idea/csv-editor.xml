@@ -17,6 +17,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\output\logs\summary\summary_24-105_2025-06-23_Class2_Podium_WM_377_2025-06-27_14-04-27.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\output\logs\summary\summary_24-105_2025-06-25_Class2_Podium_WM_412_2025-06-27_12-21-05.csv">
           <value>
             <Attribute>
@@ -67,6 +74,20 @@
           </value>
         </entry>
         <entry key="\output\logs\summary_batch_2025-06-27_09-58-00.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\output\logs\ticket_number\duplicate_ticket_exceptions.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\output\logs\ticket_number\ticket_number_exceptions.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
