@@ -839,6 +839,18 @@ def main():
         if dedupe_key not in unique_tickets and ticket_number:
             # Build deduped summary of tickets. Each key is (vendor_name, ticket_number).
             # Value is a tuple matching the ticket_numbers_csv header order.
+            roi_link = ""
+            if row[19] != "valid":
+                roi_path = build_roi_image_path(
+                    row[1],
+                    row[5],
+                    cfg.get("output_images_dir", "./output/images"),
+                    cfg["ticket_numbers_csv"],
+                    vendor_name,
+                    ticket_number,
+                )
+                roi_link = f'=HYPERLINK("{roi_path}","View ROI")'
+
             unique_tickets[dedupe_key] = (
                 row[5],  # page
                 vendor_name,
@@ -852,6 +864,7 @@ def main():
                 row[1],  # file_path
                 row[4],  # page_image_hash
                 row[3],  # file_hash
+                roi_link,
             )
         elif ticket_number:
             dup_key = (row[0], row[5], vendor_name, ticket_number)
@@ -1088,6 +1101,7 @@ def main():
                     "file_path",
                     "page_image_hash",
                     "file_hash",
+                    "ROI Image Link",
                 ]
             )
         for key in sorted_keys:
@@ -1095,6 +1109,17 @@ def main():
             ticket_num = rec["ticket_number"]
             ticket_status = rec["ticket_valid"] if ticket_num else "no ticket"
             dup_flag = "true" if key in duplicate_page_keys else "false"
+            roi_link = ""
+            if ticket_status != "valid":
+                roi_path = build_roi_image_path(
+                    rec["file_path"],
+                    rec["page"],
+                    cfg.get("output_images_dir", "./output/images"),
+                    ticket_csv_path,
+                    rec["vendor_name"],
+                    ticket_num,
+                )
+                roi_link = f'=HYPERLINK("{roi_path}","View ROI")'
             w.writerow(
                 [
                     rec["page"],
@@ -1110,6 +1135,7 @@ def main():
                     rec["file_path"],
                     rec["page_image_hash"],
                     rec["file_hash"],
+                    roi_link,
                 ]
             )
 
