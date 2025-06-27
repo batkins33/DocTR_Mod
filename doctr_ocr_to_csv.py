@@ -548,6 +548,7 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
     results = []
     timings_total = []
     processed_pages = 0
+    no_ocr_pages = []
     timing_steps["init_results_sec"] = time.time() - t3
 
     # STEP: Loading Images Generator
@@ -611,7 +612,23 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
                         }
                     )
                     continue
-
+                # on success
+                if not rows:
+                    no_ocr_pages.append(
+                        {
+                            "file_name": cfg.get("file_name", os.path.basename(cfg["input_pdf"])),
+                            "file_path": cfg["input_pdf"],
+                            "page": page_num,
+                            "vendor_name": "",
+                            "ticket_number": "",
+                            "roi_image": build_roi_image_path(
+                                cfg["input_pdf"],
+                                page_num,
+                                cfg.get("output_images_dir", "./output/images"),
+                                cfg["output_csv"],
+                            ),
+                        }
+                    )
                 processed_pages += 1
                 results.extend(rows)
                 timings_total.append(timings)
@@ -649,13 +666,27 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
                     )
                     continue
 
-                processed_pages += 1
-                results.extend(rows)
-                timings_total.append(timings)
-                if corrected_images is not None and corrected_img is not None:
-                    corrected_images.append(corrected_img)
-                pbar.update(1)
-        timing_steps["rotate_pages_sec"] = time.time() - t5
+            if not rows:
+                no_ocr_pages.append(
+                    {
+                        "file_name": cfg.get("file_name", os.path.basename(cfg["input_pdf"])),
+                        "file_path": cfg["input_pdf"],
+                        "page": page_num,
+                        "vendor_name": "",
+                        "ticket_number": "",
+                        "roi_image": build_roi_image_path(
+                            cfg["input_pdf"],
+                            page_num,
+                            cfg.get("output_images_dir", "./output/images"),
+                            cfg["output_csv"],
+                        ),
+                    }
+                )
+            processed_pages += 1
+            results.extend(rows)
+            timings_total.append(timings)
+            if corrected_images is not None and corrected_img is not None:
+                corrected_images.append(corrected_img)
 
     # ─── Return or Legacy CSV branch ─────────────────────────────────────────
     if return_rows:
@@ -669,6 +700,7 @@ def process_pdf_to_csv(cfg, vendor_rules, extraction_rules, return_rows=False):
             total_pages,
             exceptions,
             timing_steps,
+            no_ocr_pages,
         )
 
     else:
@@ -707,6 +739,7 @@ def main():
     batch_mode = cfg.get("batch_mode", False)
     all_results = []
     all_corrected_images = []
+    all_no_ocr_pages = []
     sum_processed_pages = 0
     sum_total_pages = 0
 
@@ -743,10 +776,16 @@ def main():
         file_cfg["file_name"] = os.path.basename(pdf_file)
         file_cfg["file_path"] = pdf_file
 
-        results, corrected_images, proc_pages, tot_pages, excs, timing_steps = (
-            process_pdf_to_csv(
-                file_cfg, vendor_rules, extraction_rules, return_rows=True
-            )
+        (
+            results,
+            corrected_images,
+            proc_pages,
+            tot_pages,
+            excs,
+            timing_steps,
+            no_ocr,
+        ) = process_pdf_to_csv(
+            file_cfg, vendor_rules, extraction_rules, return_rows=True
         )
 
         # Capture per-file timing and performance stats
@@ -766,6 +805,8 @@ def main():
         all_results.extend(results)
         if corrected_images:
             all_corrected_images.extend(corrected_images)
+        if no_ocr:
+            all_no_ocr_pages.extend(no_ocr)
 
         # accumulate pages stats & exceptions
         sum_processed_pages += proc_pages
@@ -777,6 +818,8 @@ def main():
     # --- Calculate stats before writing summary files ---
     num_pages = len(set((row[0], row[5]) for row in all_results))  # (file_name, page)
     unique_tickets = {}
+    duplicate_ticket_pages = []
+    seen_duplicate_entries = set()
     for row in all_results:
         vendor_name = row[16]
         ticket_number = row[11]
@@ -798,6 +841,27 @@ def main():
                 row[4],  # page_image_hash
                 row[3],  # file_hash
             )
+        elif ticket_number:
+            dup_key = (row[0], row[5], vendor_name, ticket_number)
+            if dup_key not in seen_duplicate_entries:
+                duplicate_ticket_pages.append(
+                    {
+                        "file_name": row[0],
+                        "file_path": row[1],
+                        "page": row[5],
+                        "vendor_name": vendor_name,
+                        "ticket_number": ticket_number,
+                        "roi_image": build_roi_image_path(
+                            row[1],
+                            row[5],
+                            cfg.get("output_images_dir", "./output/images"),
+                            cfg["output_csv"],
+                            vendor_name,
+                            ticket_number,
+                        ),
+                    }
+                )
+                seen_duplicate_entries.add(dup_key)
 
     # Count valid manifest numbers
     valid_manifests = set()
@@ -849,6 +913,8 @@ def main():
         )
 
     num_no_ticket_pages = len(no_ticket_pages)
+    num_duplicate_ticket_pages = len(duplicate_ticket_pages)
+    num_no_ocr_pages = len(all_no_ocr_pages)
 
     # --- Write combined OCR data dump ---
     os.makedirs(os.path.dirname(cfg["output_csv"]), exist_ok=True)
@@ -942,6 +1008,51 @@ def main():
                 ]
             )
 
+    # --- Write duplicate ticket & no-OCR pages report ---
+    dup_ex_csv = cfg.get(
+        "duplicate_ticket_exceptions_csv",
+        os.path.join(os.path.dirname(roi_ex_csv), "duplicate_ticket_exceptions.csv"),
+    )
+    os.makedirs(os.path.dirname(dup_ex_csv), exist_ok=True)
+    file_exists = os.path.isfile(dup_ex_csv)
+    with open(dup_ex_csv, "a", newline="", encoding="utf-8") as df:
+        w = csv.writer(df)
+        if not file_exists:
+            w.writerow(
+                [
+                    "file_name",
+                    "file_path",
+                    "page",
+                    "vendor_name",
+                    "ticket_number",
+                    "ROI Image Link",
+                ]
+            )
+        for rec in duplicate_ticket_pages:
+            link = f'=HYPERLINK("{rec["roi_image"]}","View ROI")'
+            w.writerow(
+                [
+                    rec["file_name"],
+                    rec["file_path"],
+                    rec["page"],
+                    rec["vendor_name"],
+                    rec["ticket_number"],
+                    link,
+                ]
+            )
+        for rec in all_no_ocr_pages:
+            link = f'=HYPERLINK("{rec["roi_image"]}","View ROI")'
+            w.writerow(
+                [
+                    rec["file_name"],
+                    rec["file_path"],
+                    rec["page"],
+                    rec.get("vendor_name", ""),
+                    rec.get("ticket_number", ""),
+                    link,
+                ]
+            )
+
     # --- Write exception report ONLY if exceptions exist ---
     if all_exceptions:
         os.makedirs(os.path.dirname(exceptions_csv), exist_ok=True)
@@ -971,6 +1082,8 @@ def main():
         writer.writerow(["Valid manifest numbers", valid_manifest_numbers])
         writer.writerow(["Manifest numbers for review", review_manifest_numbers])
         writer.writerow(["Pages with no ticket number", num_no_ticket_pages])
+        writer.writerow(["Duplicate ticket pages", num_duplicate_ticket_pages])
+        writer.writerow(["Pages with no OCR text", num_no_ocr_pages])
     logging.info(f"Wrote summary report to {summary_csv}")
 
     # --- Save corrected PDF, only after all pages processed ---
@@ -1028,6 +1141,8 @@ def main():
     print(f"Valid manifests:     {valid_manifest_numbers}")
     print(f"Manifests for review:{review_manifest_numbers}")
     print(f"No-ticket pages:      {num_no_ticket_pages}")
+    print(f"Duplicate pages:     {num_duplicate_ticket_pages}")
+    print(f"No-OCR pages:        {num_no_ocr_pages}")
     print(
         f"All done! Results saved to {cfg['output_csv']} and {cfg['ticket_numbers_csv']}"
     )
