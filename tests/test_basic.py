@@ -1,5 +1,6 @@
 import ast
 import re
+import os
 from pathlib import Path
 
 # Helper to load specific function definitions from doctr_ocr_to_csv.py without
@@ -8,18 +9,19 @@ from pathlib import Path
 def load_funcs(*names):
     src = Path('doctr_ocr_to_csv.py').read_text()
     module = ast.parse(src)
-    ns = {'re': re}
+    ns = {'re': re, 'os': os}
     for node in module.body:
         if isinstance(node, ast.FunctionDef) and node.name in names:
             code = ast.Module(body=[node], type_ignores=[])
             exec(compile(code, 'doctr_ocr_to_csv.py', 'exec'), ns)
     return [ns[name] for name in names]
 
-safe_filename, normalize_ticket_number, get_manifest_validation_status, get_ticket_validation_status = load_funcs(
+safe_filename, normalize_ticket_number, get_manifest_validation_status, get_ticket_validation_status, build_roi_image_path = load_funcs(
     'safe_filename',
     'normalize_ticket_number',
     'get_manifest_validation_status',
-    'get_ticket_validation_status'
+    'get_ticket_validation_status',
+    'build_roi_image_path'
 )
 
 
@@ -47,3 +49,10 @@ def test_ticket_validation_status():
     assert get_ticket_validation_status('abc', r'\d+') == 'invalid'
     assert get_ticket_validation_status(None, r'\d+') == 'invalid'
     assert get_ticket_validation_status('123', None) == 'not checked'
+
+
+def test_build_roi_image_path():
+    path = build_roi_image_path('docs/sample.pdf', 1, '/out/images', '/out/output.csv', 'Vendor', '123')
+    assert path == os.path.relpath('/out/images/sample/0001_Vendor_123_roi.png', start=os.path.dirname('/out/output.csv'))
+    manifest_path = build_roi_image_path('docs/sample.pdf', 1, '/out/images', '/out/output.csv', 'Vendor', '123', 'manifest')
+    assert manifest_path.endswith('sample/0001_Vendor_123_manifest_roi.png')
