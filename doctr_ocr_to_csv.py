@@ -258,6 +258,31 @@ def get_ticket_validation_status(ticket_number, validation_regex):
     return "valid" if re.fullmatch(validation_regex, ticket_number) else "invalid"
 
 
+def save_roi_image(pil_img, roi, out_path, page_num):
+    """Draw the ROI rectangle on a copy of ``pil_img`` and save it."""
+    arr = np.array(pil_img)
+    if roi and len(roi) == 4:
+        try:
+            if max(roi) <= 1:
+                width, height = pil_img.size
+                pt1 = (int(roi[0] * width), int(roi[1] * height))
+                pt2 = (int(roi[2] * width), int(roi[3] * height))
+            else:
+                pt1 = (int(roi[0]), int(roi[1]))
+                pt2 = (int(roi[2]), int(roi[3]))
+            cv2.rectangle(arr, pt1, pt2, (255, 0, 0), 2)
+        except Exception as e:
+            logging.warning(
+                f"ROI rectangle error on page {page_num}: {e} (roi={roi})"
+            )
+    else:
+        logging.warning(
+            f"ROI not defined or wrong length on page {page_num}: {roi}"
+        )
+
+    cv2.imwrite(out_path, arr[..., ::-1])
+
+
 def extract_field(result_page, field_rules, pil_img=None, cfg=None):
     method = field_rules.get("method")
     regex = field_rules.get("regex")
@@ -424,32 +449,17 @@ def process_page(args):
     # Save base image
     pil_img.save(os.path.join(base_image_dir, f"{base}.png"))
 
-    # Save ROI image if needed
+    # Save ROI images if needed
     if cfg.get("draw_roi", False):
-        arr = np.array(pil_img)
-        field_rules = vendor_rule.get("ticket_number", {})
-        roi = field_rules.get("roi") or field_rules.get("box")
-        if roi and len(roi) == 4:
-            try:
-                if max(roi) <= 1:
-                    width, height = pil_img.size
-                    pt1 = (int(roi[0] * width), int(roi[1] * height))
-                    pt2 = (int(roi[2] * width), int(roi[3] * height))
-                else:
-                    pt1 = (int(roi[0]), int(roi[1]))
-                    pt2 = (int(roi[2]), int(roi[3]))
-                cv2.rectangle(arr, pt1, pt2, (255, 0, 0), 2)
-            except Exception as e:
-                logging.warning(
-                    f"ROI rectangle error on page {page_num}: {e} (roi={roi})"
-                )
-        else:
-            logging.warning(
-                f"ROI not defined or wrong length on page {page_num}: {roi}"
-            )
+        ticket_rules = vendor_rule.get("ticket_number", {})
+        ticket_roi = ticket_rules.get("roi") or ticket_rules.get("box")
+        ticket_path = os.path.join(roi_image_dir, f"{base}_roi.png")
+        save_roi_image(pil_img, ticket_roi, ticket_path, page_num)
 
-        # PATCHED: Save ROI image using same naming format
-        cv2.imwrite(os.path.join(roi_image_dir, f"{base}_roi.png"), arr[..., ::-1])
+        manifest_rules = vendor_rule.get("manifest_number", {})
+        manifest_roi = manifest_rules.get("roi") or manifest_rules.get("box")
+        manifest_path = os.path.join(roi_image_dir, f"{base}_manifest_roi.png")
+        save_roi_image(pil_img, manifest_roi, manifest_path, page_num)
 
     manifest_number = fields["manifest_number"]
     material_type = fields["material_type"]
@@ -727,13 +737,18 @@ def build_roi_image_path(
     output_csv,
     vendor_name="unknown",
     ticket_number="none",
+    roi_type="ticket",
 ):
     file_stem = os.path.splitext(os.path.basename(file_path))[0].replace(" ", "_")
     vendor_str = safe_filename(vendor_name or "unknown")
     ticket_str = safe_filename(ticket_number or "none")
     base = f"{int(page_num):04d}_{vendor_str}_{ticket_str}"
     image_output_dir = os.path.join(output_images_dir, file_stem)
-    roi_image = os.path.join(image_output_dir, f"{base}_roi.png")
+    if roi_type == "ticket":
+        filename = f"{base}_roi.png"
+    else:
+        filename = f"{base}_{roi_type}_roi.png"
+    roi_image = os.path.join(image_output_dir, filename)
     roi_image_rel = os.path.relpath(roi_image, start=os.path.dirname(output_csv))
     return roi_image_rel
 
@@ -904,6 +919,38 @@ def main():
             review_manifests.add(key)
     review_manifest_numbers = len(review_manifests)
 
+    # Pages where manifest is missing or invalid
+    manifest_exception_set = set(
+        (row[0], row[5])
+        for row in all_results
+        if row[20] != "valid"
+    )
+    manifest_exception_pages = []
+    for file_name, page in sorted(manifest_exception_set):
+        row = next((r for r in all_results if r[0] == file_name and r[5] == page), None)
+        vendor_name = row[16] if row else ""
+        ticket_num = row[11] if row else ""
+        manifest_num = row[12] if row else ""
+        file_path = row[1] if row else ""
+        manifest_exception_pages.append(
+            {
+                "file_name": file_name,
+                "file_path": file_path,
+                "page": page,
+                "vendor_name": vendor_name,
+                "manifest_number": manifest_num,
+                "roi_image": build_roi_image_path(
+                    file_path,
+                    page,
+                    cfg.get("output_images_dir", "./output/images"),
+                    cfg["output_csv"],
+                    vendor_name,
+                    ticket_num,
+                    "manifest",
+                ),
+            }
+        )
+
     # --- Track pages with at least one ticket number ---
     pages_with_ticket = set(
         (row[0], row[5]) for row in all_results if row[11]
@@ -939,6 +986,7 @@ def main():
 
     num_no_ticket_pages = len(no_ticket_pages)
     num_no_ocr_pages = len(all_no_ocr_pages)
+    num_manifest_exception_pages = len(manifest_exception_pages)
 
     # --- Categorize ticket validity per page ---
     page_ticket_status = {}
@@ -1102,6 +1150,7 @@ def main():
                     "page_image_hash",
                     "file_hash",
                     "ROI Image Link",
+                    "Manifest ROI Link",
                 ]
             )
         for key in sorted_keys:
@@ -1118,8 +1167,22 @@ def main():
                     ticket_csv_path,
                     rec["vendor_name"],
                     ticket_num,
+                    "ticket",
                 )
                 roi_link = f'=HYPERLINK("{roi_path}","View ROI")'
+
+            manifest_roi_link = ""
+            if rec["manifest_valid"] != "valid":
+                m_roi = build_roi_image_path(
+                    rec["file_path"],
+                    rec["page"],
+                    cfg.get("output_images_dir", "./output/images"),
+                    ticket_csv_path,
+                    rec["vendor_name"],
+                    ticket_num,
+                    "manifest",
+                )
+                manifest_roi_link = f'=HYPERLINK("{m_roi}","View ROI")'
             w.writerow(
                 [
                     rec["page"],
@@ -1136,6 +1199,7 @@ def main():
                     rec["page_image_hash"],
                     rec["file_hash"],
                     roi_link,
+                    manifest_roi_link,
                 ]
             )
 
@@ -1207,6 +1271,39 @@ def main():
                 ]
             )
 
+    # --- Write manifest number exceptions report ---
+    man_ex_csv = cfg.get(
+        "manifest_number_exceptions_csv",
+        os.path.join(os.path.dirname(roi_ex_csv), "manifest_number_exceptions.csv"),
+    )
+    os.makedirs(os.path.dirname(man_ex_csv), exist_ok=True)
+    file_exists = os.path.isfile(man_ex_csv)
+    with open(man_ex_csv, "a", newline="", encoding="utf-8") as mf:
+        w = csv.writer(mf)
+        if not file_exists:
+            w.writerow(
+                [
+                    "file_name",
+                    "file_path",
+                    "page",
+                    "vendor_name",
+                    "manifest_number",
+                    "ROI Image Link",
+                ]
+            )
+        for rec in manifest_exception_pages:
+            link = f'=HYPERLINK("{rec["roi_image"]}","View ROI")'
+            w.writerow(
+                [
+                    rec["file_name"],
+                    rec["file_path"],
+                    rec["page"],
+                    rec["vendor_name"],
+                    rec["manifest_number"],
+                    link,
+                ]
+            )
+
     # --- Write exception report ONLY if exceptions exist ---
     if all_exceptions:
         os.makedirs(os.path.dirname(exceptions_csv), exist_ok=True)
@@ -1241,6 +1338,7 @@ def main():
         writer.writerow(["Duplicate ticket numbers", num_duplicate_ticket_pages])
         writer.writerow(["Not-checked ticket numbers", num_not_checked_ticket_numbers])
         writer.writerow(["Pages with no OCR text", num_no_ocr_pages])
+        writer.writerow(["Manifest number exceptions", num_manifest_exception_pages])
     logging.info(f"Wrote summary report to {summary_csv}")
 
     # --- Save corrected PDF, only after all pages processed ---
@@ -1303,6 +1401,7 @@ def main():
     print(f"Duplicate ticket numbers: {num_duplicate_ticket_pages}")
     print(f"Not-checked ticket numbers:{num_not_checked_ticket_numbers}")
     print(f"No-OCR pages:        {num_no_ocr_pages}")
+    print(f"Manifest exceptions: {num_manifest_exception_pages}")
     print(
         f"All done! Results saved to {cfg['output_csv']} and {cfg['ticket_numbers_csv']}"
     )

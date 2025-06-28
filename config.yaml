@@ -10,6 +10,7 @@ ticket_numbers_csv: ./output/ticket_number/combined_ticket_numbers.csv
 
 # Pages that had *no* ticket numbers
 ticket_number_exceptions_csv: ./output/logs/ticket_number/ticket_number_exceptions.csv
+manifest_number_exceptions_csv: ./output/logs/manifest_number/manifest_number_exceptions.csv
 
 # Summary stats
 summary_report_dir: ./output/logs/summary  # directory only, not the full filename

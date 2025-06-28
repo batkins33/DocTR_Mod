@@ -3,6 +3,7 @@ input_dir: ./data/
 batch_mode: true
 output_csv: ./output/ocr/all_results.csv
 ticket_numbers_csv: ./output/ocr/combined_ticket_numbers.csv
+manifest_number_exceptions_csv: ./output/logs/manifest_number/manifest_number_exceptions.csv
 output_images_dir: ./output/images/
 draw_roi: true
 orientation_check: tesseract  # tesseract, doctr, or none
